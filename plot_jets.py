@@ -73,7 +73,7 @@ def plot_jet_image_towers(img, R=0.4, zlabel=r'$\sum p_T$'):
 # PLOTTING STARTS HERE #
 ########################
 
-img = jet_to_image(X[2],npixels=32)
+img = jet_to_image(X[5],npixels=32)
 fig, ax = plot_jet_image_towers(img, R=0.4)
 
 fig.savefig("jet_towers.pdf", bbox_inches="tight", pad_inches=0.30,transparent=True)
