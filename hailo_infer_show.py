@@ -17,6 +17,17 @@ from matplotlib.widgets import Button
 import hailo_platform as hpf
 from load_jets import load_jets, jet_to_image_3ch
 
+# Suppress known matplotlib bug: AttributeError in Axes3D._button_release
+# when toolbar is None (harmless but noisy on some backends)
+import mpl_toolkits.mplot3d.axes3d as _axes3d
+_orig_button_release = _axes3d.Axes3D._button_release
+def _safe_button_release(self, event):
+    try:
+        return _orig_button_release(self, event)
+    except AttributeError:
+        pass
+_axes3d.Axes3D._button_release = _safe_button_release
+
 
 def run_inference(hef_path, jet_images):
     """Run inference on the Hailo-8. jet_images: (N, 32, 32, 3) NHWC float32."""
