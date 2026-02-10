@@ -49,7 +49,10 @@ print("Stage 1 complete: parsed HAR saved.")
 
 # The calibration dict key must match Hailo's internal input layer name
 # (shown in the parser log as: 'input': 'jet_classifier/input_layer1').
-calib_dataset = {"jet_classifier/input_layer1": calib_data}
+# Hailo expects NHWC (channels last), our data is NCHW (channels first) -> transpose
+calib_data_nhwc = np.transpose(calib_data, (0, 2, 3, 1))  # (N,3,32,32) -> (N,32,32,3)
+print(f"Calibration data transposed to NHWC: {calib_data_nhwc.shape}")
+calib_dataset = {"jet_classifier/input_layer1": calib_data_nhwc}
 runner.optimize(calib_dataset)
 runner.save_har("jet_classifier_quantized.har")
 print("Stage 2 complete: quantized HAR saved.")
