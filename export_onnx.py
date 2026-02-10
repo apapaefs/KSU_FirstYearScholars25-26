@@ -25,7 +25,8 @@ export_model.eval()
 # dummy input (batch=1, channels=3, height=32, width=32)
 dummy_input = torch.randn(1, 3, 32, 32)
 
-# export to ONNX
+# export to ONNX using the legacy TorchScript-based exporter
+# (the new torch.export-based exporter produces graphs that Hailo DFC can't parse)
 onnx_path = "jet_classifier.onnx"
 torch.onnx.export(
     export_model,
@@ -33,8 +34,9 @@ torch.onnx.export(
     onnx_path,
     input_names=["input"],
     output_names=["output"],
-    opset_version=18,
+    opset_version=13,
     dynamic_axes=None,   # fixed shapes for Hailo
+    dynamo=False,         # force legacy TorchScript exporter
 )
 print(f"Exported to {onnx_path}")
 
