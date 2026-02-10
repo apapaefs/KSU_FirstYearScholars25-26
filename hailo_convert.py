@@ -58,9 +58,16 @@ runner.save_har("jet_classifier_quantized.har")
 print("Stage 2 complete: quantized HAR saved.")
 
 # --- Stage 3: Compile to HEF ---
+# Note: This step requires a compatible libstdc++ (GLIBCXX_3.4.30+).
+# If it fails on RHEL, use hailo_compile.py on Ubuntu 22.04 or in the Hailo Docker image.
 
-hef = runner.compile()
-hef_path = "jet_classifier.hef"
-with open(hef_path, "wb") as f:
-    f.write(hef)
-print(f"Stage 3 complete: HEF saved to {hef_path}")
+try:
+    hef = runner.compile()
+    hef_path = "jet_classifier.hef"
+    with open(hef_path, "wb") as f:
+        f.write(hef)
+    print(f"Stage 3 complete: HEF saved to {hef_path}")
+except Exception as e:
+    print(f"\nStage 3 (compile) failed: {e}")
+    print("The quantized HAR file is ready: jet_classifier_quantized.har")
+    print("To compile it to HEF, run hailo_compile.py on Ubuntu 22.04 or in the Hailo Docker image.")
