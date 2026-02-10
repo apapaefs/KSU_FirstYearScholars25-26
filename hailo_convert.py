@@ -61,12 +61,7 @@ if os.path.exists(alls_path):
     runner.load_model_script(alls_path)
     print(f"Loaded model script: {alls_path}")
 
-# Try to force optimization level 2 even on CPU (may be slow but more accurate)
-try:
-    runner.optimize(calib_dataset, optimization_level=2)
-except TypeError:
-    # Older API may not accept optimization_level kwarg
-    runner.optimize(calib_dataset)
+runner.optimize(calib_dataset)
 runner.save_har("jet_classifier_quantized.har")
 print("Stage 2 complete: quantized HAR saved.")
 
