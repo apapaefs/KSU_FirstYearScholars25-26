@@ -49,10 +49,7 @@ print("Stage 1 complete: parsed HAR saved.")
 
 # The calibration dict key must match Hailo's internal input layer name
 # (shown in the parser log as: 'input': 'jet_classifier/input_layer1').
-# Extract it from the SDK's get_input_layers API.
-input_layers = runner.get_input_layers_names()
-print(f"Hailo input layer names: {input_layers}")
-calib_dataset = {input_layers[0]: calib_data}
+calib_dataset = {"jet_classifier/input_layer1": calib_data}
 runner.optimize(calib_dataset)
 runner.save_har("jet_classifier_quantized.har")
 print("Stage 2 complete: quantized HAR saved.")
