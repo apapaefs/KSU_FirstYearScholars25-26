@@ -1,0 +1,15 @@
+# Hailo model script for better INT8 quantization without GPU
+# Pre-quantization optimizations (work on CPU)
+
+model_optimization_config(calibration, batch_size=64, calibration_set_size=1024)
+
+# Clip weight outliers before quantizing (CPU-compatible)
+pre_quantization_optimization(weights_clipping, layers=all, mode=mmse)
+
+# Clip activation outliers using percentile statistics (CPU-compatible)
+pre_quantization_optimization(activation_clipping, layers=all, mode=percentile, percentile=99.9)
+
+# Force the final FC layers to 16-bit precision for better accuracy
+# (trades some speed for accuracy - critical for this small model)
+quantization_param(jet_classifier/fc1, precision_mode=a16_w16)
+quantization_param(jet_classifier/fc2, precision_mode=a16_w16)
