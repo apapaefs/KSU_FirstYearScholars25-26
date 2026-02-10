@@ -53,7 +53,20 @@ print("Stage 1 complete: parsed HAR saved.")
 calib_data_nhwc = np.transpose(calib_data, (0, 2, 3, 1))  # (N,3,32,32) -> (N,32,32,3)
 print(f"Calibration data transposed to NHWC: {calib_data_nhwc.shape}")
 calib_dataset = {"jet_classifier/input_layer1": calib_data_nhwc}
-runner.optimize(calib_dataset)
+
+# Load model script for better quantization settings
+import os
+alls_path = "jet_classifier.alls"
+if os.path.exists(alls_path):
+    runner.load_model_script(alls_path)
+    print(f"Loaded model script: {alls_path}")
+
+# Try to force optimization level 2 even on CPU (may be slow but more accurate)
+try:
+    runner.optimize(calib_dataset, optimization_level=2)
+except TypeError:
+    # Older API may not accept optimization_level kwarg
+    runner.optimize(calib_dataset)
 runner.save_har("jet_classifier_quantized.har")
 print("Stage 2 complete: quantized HAR saved.")
 
