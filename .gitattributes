@@ -1,0 +1,2 @@
+QG_jets.npz filter=lfs diff=lfs merge=lfs -text
+QG_jets_herwig_0.npz filter=lfs diff=lfs merge=lfs -text
