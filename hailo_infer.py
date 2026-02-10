@@ -67,9 +67,11 @@ if __name__ == "__main__":
     n = min(args.n, len(X))
 
     # convert to 3-channel images
+    # jet_to_image_3ch produces NCHW (3,32,32) but Hailo expects NHWC (32,32,3)
     print(f"Preprocessing {n} jets...")
     test_images = np.stack([
-        jet_to_image_3ch(X[i], R=0.4, npixels=32, pt_min=0.0, normalize=True)
+        np.transpose(jet_to_image_3ch(X[i], R=0.4, npixels=32, pt_min=0.0, normalize=True),
+                     (1, 2, 0))  # (3,32,32) -> (32,32,3)
         for i in range(n)
     ])
 
