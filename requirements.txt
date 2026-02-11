@@ -41,8 +41,6 @@ google-pasta==0.2.0
 grpcio==1.78.0
 h11==0.16.0
 h5py==3.15.1
-hailo-dataflow-compiler @ file:///home/apapaefs/Projects/KSU_FirstYearScholars25-26/hailo_dataflow_compiler-3.33.0-py3-none-linux_x86_64.whl
-hailort @ file:///home/apapaefs/Projects/KSU_FirstYearScholars25-26/hailort-4.23.0-cp311-cp311-linux_x86_64.whl
 httpcore==1.0.9
 httpx==0.28.1
 humanfriendly==10.0
