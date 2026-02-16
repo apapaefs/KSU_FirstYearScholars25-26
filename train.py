@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import os
 
 from load_jets import load_jets, preprocess_all_jets
-from model import JetClassifierCNN
+from model import JetClassifierCNN, model_one_liner
 
 ###########################
 # DATA LOADING & CACHING  #
@@ -62,6 +62,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else
 print(f"Using device: {device}")
 
 model = JetClassifierCNN().to(device)
+
+# print model info
+model_one_liner(model, device=device)
+
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 criterion = nn.BCEWithLogitsLoss()
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, factor=0.5)
