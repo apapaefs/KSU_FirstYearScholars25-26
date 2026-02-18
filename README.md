@@ -4,7 +4,7 @@ This repository is part of a First Year Scholars project at Kennesaw State Unive
 
 # Workflow
 
-Here is the current workflow for the repository:
+Here is the current workflow for the repository. Note that files will have a tag ```_3ch_X-Y-Z```, where X, Y, and Z are the convolution layer channels. 
 
 1. *On KSU's TIMUR* Server: (on Andreas's MacBook pro use ```/Users/apapaefs/miniconda3/bin/python```)
 
@@ -54,7 +54,7 @@ python3 onnx_infer.py --model jet_classifier.onnx --data QG_jets.npz --n 10000
 or
 
 ```python
-PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_infer_show.py --hef jet_classifier.hef --data QG_jets_1.npz --n 10000
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_infer_show.py --hef output/jet_classifier.hef --data data/QG_jets_1.npz --n 10000
 ```
 
 for 10k jets. 
