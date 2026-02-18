@@ -48,6 +48,7 @@ This generates: ```jet_classifier_parsed.har```, ```jet_classifier_quantized.har
 You can either run the inference using the ONNX format:
 
 ```python
+python3 onnx_infer.py --model jet_classifier.onnx --data QG_jets.npz --n 10000
 ```
 
 or
