@@ -3,7 +3,7 @@ ONNX Runtime inference script for Raspberry Pi (or any machine).
 No Hailo hardware required — runs on CPU using the ONNX model directly.
 
 Usage:
-    python onnx_infer.py [--model jet_classifier.onnx] [--data QG_jets.npz] [--n 100]
+    python onnx_infer.py [--tag 3ch_16-32-64] [--data data/QG_jets.npz] [--n 100]
 
 Requirements:
     pip install numpy onnxruntime
@@ -11,6 +11,7 @@ Requirements:
 
 import argparse
 import time
+import os
 import numpy as np
 import onnxruntime as ort
 from load_jets import load_jets, jet_to_image_3ch
@@ -36,10 +37,17 @@ def run_inference(onnx_path, jet_images):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run jet classifier with ONNX Runtime")
-    parser.add_argument("--model", default="jet_classifier.onnx", help="Path to ONNX model")
-    parser.add_argument("--data", default="QG_jets.npz", help="Path to jet data")
+    parser.add_argument("--tag", type=str, default="3ch_16-32-64",
+                        help="Tag to identify model variant (default: 3ch_16-32-64)")
+    parser.add_argument("--outdir", type=str, default="output",
+                        help="Output directory where ONNX lives (default: output)")
+    parser.add_argument("--model", default=None, help="Path to ONNX model (overrides tag-based path)")
+    parser.add_argument("--data", default="data/QG_jets.npz", help="Path to jet data")
     parser.add_argument("--n", type=int, default=100, help="Number of jets to classify")
     args = parser.parse_args()
+
+    if args.model is None:
+        args.model = os.path.join(args.outdir, f"jet_classifier_{args.tag}.onnx")
 
     # load jets
     X, y = load_jets(args.data)

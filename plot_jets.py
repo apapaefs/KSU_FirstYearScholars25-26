@@ -1,10 +1,9 @@
 import numpy as np
-import pickle
-import sys
+import argparse
+import os
 import matplotlib.pyplot as plt
 
-# import loading of jets
-from load_jets import *
+from load_jets import load_jets, jet_to_image
 
 #################
 # PLOT FUNCTION #
@@ -52,12 +51,12 @@ def plot_jet_image_towers(img, R=0.4, zlabel=r'$\sum p_T$'):
     ax.xaxis.set_tick_params(labelsize=tick_fs)
     ax.yaxis.set_tick_params(labelsize=tick_fs)
     ax.zaxis.set_tick_params(labelsize=tick_fs)
-    
+
     # Optional: nicer view angle
     ax.view_init(elev=25, azim=-60)
 
     fig.tight_layout()
-    
+
     fig.patch.set_alpha(0)
     ax.patch.set_alpha(0)
 
@@ -66,15 +65,29 @@ def plot_jet_image_towers(img, R=0.4, zlabel=r'$\sum p_T$'):
         axis.pane.set_edgecolor((0,0,0,0))  # optional: hide pane border
 
     # remove grid lines
-    
+
     return fig, ax
 
 ########################
 # PLOTTING STARTS HERE #
 ########################
 
-img = jet_to_image(X[5],npixels=32)
-fig, ax = plot_jet_image_towers(img, R=0.4)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Plot a jet as 3D towers")
+    parser.add_argument("--data", type=str, default="data/QG_jets.npz",
+                        help="Path to jet data file")
+    parser.add_argument("--outdir", type=str, default="output",
+                        help="Output directory (default: output)")
+    parser.add_argument("--jet", type=int, default=5, help="Jet index to plot")
+    args = parser.parse_args()
 
-fig.savefig("jet_towers.pdf", bbox_inches="tight", pad_inches=0.30,transparent=True)
-plt.close(fig)
+    os.makedirs(args.outdir, exist_ok=True)
+
+    X, y = load_jets(args.data)
+    img = jet_to_image(X[args.jet], npixels=32)
+    fig, ax = plot_jet_image_towers(img, R=0.4)
+
+    out_path = os.path.join(args.outdir, "jet_towers.pdf")
+    fig.savefig(out_path, bbox_inches="tight", pad_inches=0.30, transparent=True)
+    print(f"Saved {out_path}")
+    plt.close(fig)

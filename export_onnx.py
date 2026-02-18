@@ -1,7 +1,20 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import os
+import argparse
 from model import JetClassifierCNN
+
+parser = argparse.ArgumentParser(description="Export jet classifier to ONNX")
+parser.add_argument("--tag", type=str, default="3ch_16-32-64",
+                    help="Tag to identify model variant (default: 3ch_16-32-64)")
+parser.add_argument("--outdir", type=str, default="output",
+                    help="Output directory (default: output)")
+args = parser.parse_args()
+
+TAG = args.tag
+OUTDIR = args.outdir
+os.makedirs(OUTDIR, exist_ok=True)
 
 # wrapper that includes sigmoid in the exported model
 class JetClassifierExport(nn.Module):
@@ -15,8 +28,9 @@ class JetClassifierExport(nn.Module):
 
 
 # load trained model
+model_path = os.path.join(OUTDIR, f"best_jet_classifier_{TAG}.pt")
 model = JetClassifierCNN()
-model.load_state_dict(torch.load("best_jet_classifier.pt", map_location="cpu"))
+model.load_state_dict(torch.load(model_path, map_location="cpu"))
 model.eval()
 
 export_model = JetClassifierExport(model)
@@ -27,7 +41,7 @@ dummy_input = torch.randn(1, 3, 32, 32)
 
 # export to ONNX using the legacy TorchScript-based exporter
 # (the new torch.export-based exporter produces graphs that Hailo DFC can't parse)
-onnx_path = "jet_classifier.onnx"
+onnx_path = os.path.join(OUTDIR, f"jet_classifier_{TAG}.onnx")
 torch.onnx.export(
     export_model,
     dummy_input,

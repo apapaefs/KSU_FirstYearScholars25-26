@@ -1,0 +1,32 @@
+# Jet Classifier Model Info
+# Generated: 2026-02-18 12:57:27
+
+tag             = 3ch_16-32-64
+data            = data/QG_jets.npz
+architecture    = JetClassifierCNN
+conv_channels   = [16, 32, 64]
+fc_hidden       = 128
+input_shape     = (3, 32, 32)
+channels        = [positive_pT, negative_pT, neutral_pT]
+total_params    = 155137
+trainable_params= 155137
+epochs          = 30
+batch_size      = 256
+learning_rate   = 0.001
+optimizer       = Adam
+loss_function   = BCEWithLogitsLoss
+scheduler       = ReduceLROnPlateau(patience=3, factor=0.5)
+train_samples   = 50000
+val_samples     = 25000
+test_samples    = 25000
+test_accuracy   = 0.7834
+test_auc        = 0.8629
+best_val_loss   = 0.4716
+device          = mps
+
+# Output files
+model_weights   = best_jet_classifier_3ch_16-32-64.pt
+onnx_model      = jet_classifier_3ch_16-32-64.onnx
+hailo_alls      = jet_classifier_3ch_16-32-64.alls
+hailo_hef       = jet_classifier_3ch_16-32-64.hef
+training_plots  = training_results_3ch_16-32-64.pdf

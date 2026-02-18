@@ -2,10 +2,12 @@
 HailoRT inference script for Raspberry Pi 5 with Hailo-8 AI HAT+.
 
 Usage:
-    python hailo_infer.py [--hef jet_classifier.hef] [--data QG_jets.npz] [--n 100]
+    PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_infer.py \
+        [--tag 3ch_16-32-64] [--data data/QG_jets.npz] [--n 100]
 """
 
 import argparse
+import os
 import numpy as np
 import hailo_platform as hpf
 from load_jets import load_jets, jet_to_image_3ch
@@ -57,10 +59,17 @@ def run_inference(hef_path, jet_images):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run jet classifier on Hailo-8")
-    parser.add_argument("--hef", default="jet_classifier.hef", help="Path to HEF file")
-    parser.add_argument("--data", default="QG_jets.npz", help="Path to jet data")
+    parser.add_argument("--tag", type=str, default="3ch_16-32-64",
+                        help="Tag to identify model variant (default: 3ch_16-32-64)")
+    parser.add_argument("--outdir", type=str, default="output",
+                        help="Output directory where HEF lives (default: output)")
+    parser.add_argument("--hef", default=None, help="Path to HEF file (overrides tag-based path)")
+    parser.add_argument("--data", default="data/QG_jets.npz", help="Path to jet data")
     parser.add_argument("--n", type=int, default=100, help="Number of jets to classify")
     args = parser.parse_args()
+
+    if args.hef is None:
+        args.hef = os.path.join(args.outdir, f"jet_classifier_{args.tag}.hef")
 
     # load jets
     X, y = load_jets(args.data)

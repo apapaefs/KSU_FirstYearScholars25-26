@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
@@ -230,10 +231,17 @@ class JetViewer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Hailo jet classifier viewer")
-    parser.add_argument("--hef", default="jet_classifier.hef", help="Path to HEF file")
-    parser.add_argument("--data", default="QG_jets.npz", help="Path to jet data")
+    parser.add_argument("--tag", type=str, default="3ch_16-32-64",
+                        help="Tag to identify model variant (default: 3ch_16-32-64)")
+    parser.add_argument("--outdir", type=str, default="output",
+                        help="Output directory where HEF lives (default: output)")
+    parser.add_argument("--hef", default=None, help="Path to HEF file (overrides tag-based path)")
+    parser.add_argument("--data", default="data/QG_jets.npz", help="Path to jet data")
     parser.add_argument("--n", type=int, default=100, help="Number of jets to classify")
     args = parser.parse_args()
+
+    if args.hef is None:
+        args.hef = os.path.join(args.outdir, f"jet_classifier_{args.tag}.hef")
 
     # load jets
     X, y = load_jets(args.data)

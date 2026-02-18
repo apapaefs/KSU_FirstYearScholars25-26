@@ -1,6 +1,4 @@
 import numpy as np
-import pickle
-import sys
 
 #####################
 # FUNCTIONS GO HERE #
@@ -251,55 +249,12 @@ def preprocess_all_jets(X, R=0.4, npixels=32, pt_min=0.0, normalize=True):
     return images
 
 
-def plot_jet_image_towers(img, R=0.4, zlabel=r'$\sum p_T$'):
-    """
-    img: (npix, npix) array, e.g. output of jet_to_image_32x32(..., normalize=False)
-    R: half-width of the (Δy, Δφ) window used to make the image
-    """
-    npix = img.shape[0]
-    assert img.shape == (npix, npix)
 
-    # Coordinates of the lower-left corner of each "tower"
-    x_edges = np.linspace(-R, R, npix + 1)   # Δy edges
-    y_edges = np.linspace(-R, R, npix + 1)   # Δφ edges
-
-    x = x_edges[:-1]
-    y = y_edges[:-1]
-    xx, yy = np.meshgrid(x, y, indexing="ij")
-
-    x0 = xx.ravel()
-    y0 = yy.ravel()
-    z0 = np.zeros_like(x0)
-
-    dx = (2 * R) / npix
-    dy = (2 * R) / npix
-    dz = img.ravel()
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-
-    ax.bar3d(x0, y0, z0, dx, dy, dz, shade=True)
-
-    ax.set_xlabel(r'$\Delta y$')
-    ax.set_ylabel(r'$\Delta \phi$')
-    ax.set_zlabel(zlabel)
-    ax.set_title("Jet image as 3D towers")
-
-    # Optional: nicer view angle
-    ax.view_init(elev=25, azim=-60)
-
-    plt.tight_layout()
-    plt.show()
-
-####################################
-# Load some jet data and do things #
-####################################
-
-jetpath = "QG_jets.npz"  # Pythia Jets
-# path -= QG_jets_herwig_0.npz # Herwig Jets
-X, y = load_jets(jetpath)
-
-# test: convert jet to image:
-#print(jet_to_image(X[0],npixels=6))
-
-
+if __name__ == "__main__":
+    # Quick test: load jets and print info
+    jetpath = "data/QG_jets.npz"
+    X, y = load_jets(jetpath)
+    print(f"Loaded {len(X)} jets")
+    print(f"  First jet shape: {X[0].shape}")
+    img = jet_to_image_3ch(X[0], npixels=32)
+    print(f"  3ch image shape: {img.shape}")
