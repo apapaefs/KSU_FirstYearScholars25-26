@@ -24,11 +24,15 @@ python export_onnx.py
 
 This generates ```jet_classifier.onnx```
 
-3. Convert the model to the Hailo-8 format (HEF
+3. Convert the model to the Hailo-8 format (HEF)
 
 *On TIMUR*
 
-First load the environment (see ```requirements.txt```).
+First load the environment (see ```requirements.txt```):
+```
+python -m venv ~/hailo-env
+pip install -r requirements.txt
+```
 
 One needs to install the "Hailo Dataflow Compiler", found on the Hailo developer's page: 
 
