@@ -1,69 +1,116 @@
 # KSU_FirstYearScholars25-26
 
-This repository is part of a First Year Scholars project at Kennesaw State University. The aim is to train a convolutional neural network to separate between quark- and gluon-initited jets. 
+This repository is part of a First Year Scholars project at Kennesaw State University. The aim is to train a convolutional neural network to separate between quark- and gluon-initiated jets, and deploy it on a Raspberry Pi 5 with the Hailo-8 AI HAT+.
 
-# Workflow
+## Project Layout
 
-Here is the current workflow for the repository. Note that files will have a tag ```_3ch_X-Y-Z```, where X, Y, and Z are the convolution layer channels. 
+Here is the current workflow for the repository. Note that files will have a tag `_3ch_X-Y-Z`, where X, Y, and Z are the convolution layer channels.
 
-1. *On KSU's TIMUR* Server: (on Andreas's MacBook pro use ```/Users/apapaefs/miniconda3/bin/python```)
+```
+data/                       Input data files
+  QG_jets.npz                 Pythia jets (100k)
+  QG_jets_1.npz               Pythia jets (variant)
+  QG_jets_herwig_0.npz        Herwig jets
 
-```python
-python train.py
+output/                     All generated files (tagged with TAG)
+  best_jet_classifier_TAG.pt    PyTorch checkpoint
+  jet_classifier_TAG.onnx       ONNX model
+  jet_classifier_TAG.alls       Hailo quantisation config
+  jet_classifier_TAG.hef        Hailo binary
+  jet_classifier_TAG.info       Model metadata
+  training_results_TAG.pdf      Training plots
+  ...
+
+load_jets.py                Data loading + 3-channel image conversion
+model.py                    CNN architecture definition
+train.py                    Training pipeline
+export_onnx.py              ONNX export
+hailo_convert.py            Full Hailo conversion (parse + quantise + compile)
+hailo_compile.py            Hailo compile only (Stage 3)
+hailo_infer.py              Hailo-8 inference on RPi
+hailo_infer_show.py         Interactive viewer with 3D tower plots
+onnx_infer.py               ONNX Runtime inference (CPU, no Hailo needed)
+plot_jets.py                Simple single-jet tower plot
+train_qat.py                Quantisation-aware training (optional)
+workflow.tex                Full workflow documentation (LaTeX)
 ```
 
-This will generate ```training_results.pdf``` containing the training and validation loss, the validation accuracy and the ROC curve, and will save the training as ```best_jet_classifier.pt```. 
+## Workflow
 
-2. Export to the ONNX (Open Neural Network Exchange) format:
+Every output file carries a **tag** (default: `3ch_16-32-64`) so you can train multiple model variants side by side.
 
-*On TIMUR*
-   
-```python
-python export_onnx.py
+### 1. Train the model
+
+*On KSU's TIMUR server* (on Andreas's MacBook Pro use `/Users/apapaefs/miniconda3/bin/python`):
+
+```bash
+python train.py --tag 3ch_16-32-64
 ```
 
-This generates ```jet_classifier.onnx```
+This generates in `output/`:
+- `best_jet_classifier_3ch_16-32-64.pt` --- trained weights (checkpoint with architecture info)
+- `training_results_3ch_16-32-64.pdf` --- loss curves, accuracy, ROC
+- `jet_classifier_3ch_16-32-64.info` --- model metadata (architecture, hyperparameters, accuracy)
 
-3. Convert the model to the Hailo-8 format (HEF)
+### 2. Export to ONNX
 
-*On TIMUR*
+*On TIMUR:*
 
-First load the environment (see ```requirements.txt```):
+```bash
+python export_onnx.py --tag 3ch_16-32-64
 ```
-python -m venv ~/hailo-env
-pip install -r requirements.txt
-```
 
-One needs to install the "Hailo Dataflow Compiler", found on the Hailo developer's page: 
+This generates `output/jet_classifier_3ch_16-32-64.onnx`. The architecture params are read automatically from the checkpoint.
 
-```python
+### 3. Convert for the Hailo-8
+
+*On TIMUR:*
+
+First load the environment (see `requirements.txt`). Install the Hailo Dataflow Compiler:
+
+```bash
 pip install hailo_dataflow_compiler-3.33.0-py3-none-linux_x86_64.whl
 ```
 
-```python
+Then run:
+
+```bash
 source ~/hailo-env/bin/activate
-LD_PRELOAD=$HOME/conda-libstdcxx/lib/libstdc++.so.6 python hailo_convert.py
+LD_PRELOAD=$HOME/conda-libstdcxx/lib/libstdc++.so.6 python hailo_convert.py --tag 3ch_16-32-64
 ```
 
-This generates: ```jet_classifier_parsed.har```, ```jet_classifier_quantized.har``` and the HEF file: ```jet_classifier.hef```. 
+This generates in `output/`:
+- `jet_classifier_3ch_16-32-64_parsed.har`
+- `jet_classifier_3ch_16-32-64_quantized.har`
+- `jet_classifier_3ch_16-32-64.hef`
 
-4. Run on the Raspberry Pi:
+### 4. Run on the Raspberry Pi
 
-You can either run the inference using the ONNX format:
+Using ONNX Runtime (no Hailo hardware needed):
 
-```python
-python3 onnx_infer.py --model jet_classifier.onnx --data QG_jets.npz --n 10000
+```bash
+python3 onnx_infer.py --tag 3ch_16-32-64 --data data/QG_jets.npz --n 10000
 ```
 
-or
+Using the Hailo-8:
 
-```python
-PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_infer_show.py --hef output/jet_classifier.hef --data data/QG_jets_1.npz --n 10000
+```bash
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_infer.py --tag 3ch_16-32-64 --data data/QG_jets.npz --n 10000
 ```
 
-for 10k jets. 
+Interactive viewer with 3D tower plots:
 
-You can also just run the inference without the graphs using ```hailo_infer.py```.
+```bash
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_infer_show.py --tag 3ch_16-32-64 --data data/QG_jets_1.npz --n 10000
+```
 
+### Trying a different architecture
 
+```bash
+# Wider network: 32-64-128 filters, 256 FC hidden units
+python train.py --tag 3ch_32-64-128 --c1 32 --c2 64 --c3 128 --fc 256
+python export_onnx.py --tag 3ch_32-64-128
+python hailo_convert.py --tag 3ch_32-64-128
+```
 
+Both sets of results coexist in `output/` without overwriting each other.

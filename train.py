@@ -41,7 +41,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 # DATA LOADING & CACHING  #
 ###########################
 
-CACHE_FILE = os.path.join(OUTDIR, f"jet_images_3ch_{TAG}.npz")
+CACHE_FILE = os.path.join(OUTDIR, f"jet_images_{TAG}.npz")
 
 X_raw, y = load_jets(args.data)
 
@@ -147,7 +147,11 @@ for epoch in range(num_epochs):
     # save best model
     if val_loss < best_val_loss:
         best_val_loss = val_loss
-        torch.save(model.state_dict(), model_path)
+        torch.save({
+            'state_dict': model.state_dict(),
+            'c1': args.c1, 'c2': args.c2, 'c3': args.c3,
+            'c4': args.c4, 'fc': args.fc, 'tag': TAG,
+        }, model_path)
         print(f"  -> Saved best model (val_loss={val_loss:.4f})")
 
 ################
@@ -155,7 +159,7 @@ for epoch in range(num_epochs):
 ################
 
 # load best model
-model.load_state_dict(torch.load(model_path, map_location=device))
+model.load_state_dict(torch.load(model_path, map_location=device)['state_dict'])
 model.eval()
 
 # collect test predictions

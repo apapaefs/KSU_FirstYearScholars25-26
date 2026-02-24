@@ -27,11 +27,17 @@ class JetClassifierExport(nn.Module):
         return self.sigmoid(self.base(x))
 
 
-# load trained model
+# load trained model (checkpoint includes architecture params)
 model_path = os.path.join(OUTDIR, f"best_jet_classifier_{TAG}.pt")
-model = JetClassifierCNN()
-model.load_state_dict(torch.load(model_path, map_location="cpu"))
+checkpoint = torch.load(model_path, map_location="cpu")
+model = JetClassifierCNN(
+    c1=checkpoint['c1'], c2=checkpoint['c2'], c3=checkpoint['c3'],
+    c4=checkpoint.get('c4'), fc=checkpoint['fc'],
+)
+model.load_state_dict(checkpoint['state_dict'])
 model.eval()
+print(f"Loaded model: c1={checkpoint['c1']}, c2={checkpoint['c2']}, "
+      f"c3={checkpoint['c3']}, c4={checkpoint.get('c4')}, fc={checkpoint['fc']}")
 
 export_model = JetClassifierExport(model)
 export_model.eval()
