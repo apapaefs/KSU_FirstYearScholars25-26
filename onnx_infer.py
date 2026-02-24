@@ -37,8 +37,8 @@ def run_inference(onnx_path, jet_images):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run jet classifier with ONNX Runtime")
-    parser.add_argument("--tag", type=str, default="3ch_16-32-64",
-                        help="Tag to identify model variant (default: 3ch_16-32-64)")
+    parser.add_argument("--tag", type=str, required=True,
+                        help="Tag identifying the model variant (e.g. 3ch_16-32-64)")
     parser.add_argument("--outdir", type=str, default="output",
                         help="Output directory where ONNX lives (default: output)")
     parser.add_argument("--model", default=None, help="Path to ONNX model (overrides tag-based path)")

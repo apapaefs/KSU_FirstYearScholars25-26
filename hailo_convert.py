@@ -16,8 +16,8 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description="Convert ONNX model to Hailo HEF")
-parser.add_argument("--tag", type=str, default="3ch_16-32-64",
-                    help="Tag to identify model variant (default: 3ch_16-32-64)")
+parser.add_argument("--tag", type=str, required=True,
+                    help="Tag identifying the model variant (e.g. 3ch_16-32-64)")
 parser.add_argument("--data", type=str, default="data/QG_jets.npz",
                     help="Path to jet data (for calibration)")
 parser.add_argument("--outdir", type=str, default="output",

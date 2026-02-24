@@ -17,8 +17,8 @@ import argparse
 import os
 
 parser = argparse.ArgumentParser(description="Compile quantized HAR to HEF")
-parser.add_argument("--tag", type=str, default="3ch_16-32-64",
-                    help="Tag to identify model variant (default: 3ch_16-32-64)")
+parser.add_argument("--tag", type=str, required=True,
+                    help="Tag identifying the model variant (e.g. 3ch_16-32-64)")
 parser.add_argument("--outdir", type=str, default="output",
                     help="Output directory (default: output)")
 parser.add_argument("--har", default=None, help="Quantized HAR file (overrides tag-based path)")

@@ -17,8 +17,8 @@ from model import JetClassifierCNN, model_one_liner
 ################
 
 parser = argparse.ArgumentParser(description="Train quark/gluon jet classifier")
-parser.add_argument("--tag", type=str, default="3ch_16-32-64",
-                    help="Tag appended to all output filenames (default: 3ch_16-32-64)")
+parser.add_argument("--tag", type=str, default=None,
+                    help="Tag appended to all output filenames (auto-generated from architecture if not set)")
 parser.add_argument("--data", type=str, default="data/QG_jets.npz",
                     help="Path to jet data file")
 parser.add_argument("--outdir", type=str, default="output",
@@ -33,7 +33,15 @@ parser.add_argument("--c4", type=int, default=None, help="Conv block 4 channels 
 parser.add_argument("--fc", type=int, default=128, help="FC hidden layer size")
 args = parser.parse_args()
 
-TAG = args.tag
+# Auto-generate tag from architecture if not explicitly provided
+if args.tag is None:
+    channels = f"{args.c1}-{args.c2}-{args.c3}"
+    if args.c4 is not None:
+        channels += f"-{args.c4}"
+    TAG = f"3ch_{channels}"
+else:
+    TAG = args.tag
+print(f"Using tag: {TAG}")
 OUTDIR = args.outdir
 os.makedirs(OUTDIR, exist_ok=True)
 
