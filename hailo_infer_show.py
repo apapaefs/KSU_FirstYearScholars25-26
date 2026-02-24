@@ -231,7 +231,7 @@ class JetViewer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Hailo jet classifier viewer")
-    parser.add_argument("--tag", type=str, default="3ch_16-32-64",
+    parser.add_argument("--tag", type=str, required=True,
                         help="Tag to identify model variant (default: 3ch_16-32-64)")
     parser.add_argument("--outdir", type=str, default="output",
                         help="Output directory where HEF lives (default: output)")
