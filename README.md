@@ -79,7 +79,8 @@ source ~/hailo-env/bin/activate
 LD_PRELOAD=$HOME/conda-libstdcxx/lib/libstdc++.so.6 python hailo_convert.py --tag 3ch_16-32-64
 ```
 
-(First time: do ```conda create -p /home/apapaefs/conda-libstdcxx -c conda-forge libstdcxx-ng=13 -y```)
+(First time: do ```conda create -p /home/apapaefs/conda-libstdcxx -c conda-forge libstdcxx-ng=13 -y```
+and also: ```python3 -m venv ~/hailo-env```)
 
 This generates in `output/`:
 - `jet_classifier_3ch_16-32-64_parsed.har`
