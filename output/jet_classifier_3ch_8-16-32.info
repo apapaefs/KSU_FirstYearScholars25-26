@@ -1,15 +1,15 @@
 # Jet Classifier Model Info
-# Generated: 2026-02-24 19:42:31
+# Generated: 2026-03-02 14:35:23
 
 tag             = 3ch_8-16-32
 data            = data/QG_jets.npz
 architecture    = JetClassifierCNN
 conv_channels   = [8, 16, 32]
-fc_hidden       = 64
+fc_hidden       = 128
 input_shape     = (3, 32, 32)
 channels        = [positive_pT, negative_pT, neutral_pT]
-total_params    = 39041
-trainable_params= 39041
+total_params    = 71937
+trainable_params= 71937
 epochs          = 30
 batch_size      = 256
 learning_rate   = 0.001
@@ -19,9 +19,9 @@ scheduler       = ReduceLROnPlateau(patience=3, factor=0.5)
 train_samples   = 50000
 val_samples     = 25000
 test_samples    = 25000
-test_accuracy   = 0.7105
-test_auc        = 0.8402
-best_val_loss   = 0.6187
+test_accuracy   = 0.7668
+test_auc        = 0.8635
+best_val_loss   = 0.5118
 device          = cpu
 
 # Output files
