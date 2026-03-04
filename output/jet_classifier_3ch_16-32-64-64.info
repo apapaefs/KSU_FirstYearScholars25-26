@@ -1,5 +1,5 @@
 # Jet Classifier Model Info
-# Generated: 2026-03-02 14:44:22
+# Generated: 2026-03-03 23:59:00
 
 tag             = 3ch_16-32-64-64
 data            = data/QG_jets.npz
@@ -19,9 +19,9 @@ scheduler       = ReduceLROnPlateau(patience=3, factor=0.5)
 train_samples   = 50000
 val_samples     = 25000
 test_samples    = 25000
-test_accuracy   = 0.7274
-test_auc        = 0.8037
-best_val_loss   = 0.5819
+test_accuracy   = 0.7450
+test_auc        = 0.8081
+best_val_loss   = 0.5428
 device          = cpu
 
 # Output files
