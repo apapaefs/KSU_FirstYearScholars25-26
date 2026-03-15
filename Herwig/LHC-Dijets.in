@@ -1,0 +1,193 @@
+# -*- ThePEG-repository -*-
+
+##################################################
+## Herwig/Matchbox example input file
+##################################################
+
+##################################################
+## Collider type
+##################################################
+read snippets/Matchbox.in
+read snippets/PPCollider.in
+
+##################################################
+## Beam energy sqrt(s)
+##################################################
+
+cd /Herwig/EventHandlers
+set EventHandler:LuminosityFunction:Energy 14000*GeV
+
+##################################################
+## Process selection
+##################################################
+
+## Note that event generation may fail if no matching matrix element has
+## been found.  Coupling orders are with respect to the Born process,
+## i.e. NLO QCD does not require an additional power of alphas.
+
+## Model assumptions
+read Matchbox/StandardModelLike.in
+read Matchbox/DiagonalCKM.in
+
+## Set the order of the couplings
+cd /Herwig/MatrixElements/Matchbox
+set Factory:OrderInAlphaS 2
+set Factory:OrderInAlphaEW 0
+
+## Select the process
+## You may use identifiers such as p, pbar, j, l, mu+, h0 etc.
+do Factory:Process p p -> j j 
+
+## Special settings required for on-shell production of unstable particles
+## enable for on-shell top production
+# read Matchbox/OnShellTopProduction.in
+## enable for on-shell W, Z or h production
+# read Matchbox/OnShellWProduction.in
+# read Matchbox/OnShellZProduction.in
+# read Matchbox/OnShellHProduction.in
+# Special settings for the VBF approximation
+# read Matchbox/VBFDiagramsOnly.in
+
+##################################################
+## Matrix element library selection
+##################################################
+
+## Select a generic tree/loop combination or a
+## specialized NLO package
+
+# read Matchbox/MadGraph-GoSam.in
+read Matchbox/MadGraph-MadGraph.in
+# read Matchbox/MadGraph-NJet.in
+# read Matchbox/MadGraph-OpenLoops.in
+# read Matchbox/HJets.in
+# read Matchbox/VBFNLO.in
+
+## Uncomment this to use ggh effective couplings
+## currently only supported by MadGraph-GoSam
+
+# read Matchbox/HiggsEffective.in
+
+##################################################
+## Cut selection
+## See the documentation for more options
+##################################################
+cd /Herwig/Cuts/
+#set ChargedLeptonPairMassCut:MinMass 60*GeV
+#set ChargedLeptonPairMassCut:MaxMass 120*GeV
+
+## cuts on additional jets
+read Matchbox/DefaultPPJets.in
+insert JetCuts:JetRegions 0 FirstJet
+insert JetCuts:JetRegions 1 SecondJet
+set /Herwig/Cuts/FirstJet:PtMin 450.*GeV
+set /Herwig/Cuts/FirstJet:PtMax 650.*GeV
+do /Herwig/Cuts/FirstJet:YRange -2.0 2.0
+set /Herwig/Cuts/SecondJet:PtMin 450.*GeV
+set /Herwig/Cuts/SecondJet:PtMax 650.*GeV
+do /Herwig/Cuts/SecondJet:YRange -2.0 2.0
+
+
+##################################################
+## Scale choice
+## See the documentation for more options
+##################################################
+
+cd /Herwig/MatrixElements/Matchbox
+set Factory:ScaleChoice /Herwig/MatrixElements/Matchbox/Scales/HTScale
+
+##################################################
+## Matching and shower selection
+## Please also see flavour scheme settings
+## towards the end of the input file.
+##################################################
+
+# read Matchbox/MCatNLO-DefaultShower.in
+# read Matchbox/Powheg-DefaultShower.in
+## use for strict LO/NLO comparisons
+read Matchbox/MCatLO-DefaultShower.in
+## use for improved LO showering
+# read Matchbox/LO-DefaultShower.in
+
+# read Matchbox/MCatNLO-DipoleShower.in
+# read Matchbox/Powheg-DipoleShower.in
+## use for strict LO/NLO comparisons
+# read Matchbox/MCatLO-DipoleShower.in
+## use for improved LO showering
+# read Matchbox/LO-DipoleShower.in
+
+# read Matchbox/NLO-NoShower.in
+# read Matchbox/LO-NoShower.in
+
+##################################################
+## Scale uncertainties
+##################################################
+
+# read Matchbox/MuDown.in
+# read Matchbox/MuUp.in
+
+##################################################
+## Shower scale uncertainties
+##################################################
+
+# read Matchbox/MuQDown.in
+# read Matchbox/MuQUp.in
+
+##################################################
+## PDF choice
+##################################################
+
+read Matchbox/FiveFlavourScheme.in
+## required for dipole shower and fixed order in five flavour scheme
+# read Matchbox/FiveFlavourNoBMassScheme.in
+read Matchbox/CT14.in
+# read Matchbox/MMHT2014.in
+
+##################################################
+## Analyses
+##################################################
+
+# cd /Herwig/Analysis
+# insert Rivet:Analyses 0 XXX_2015_ABC123
+# insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 Rivet
+# insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 HepMC
+#set /Herwig/EventHandlers/EventHandler:Sampler MonacoSampler
+
+##################################################
+## HwSim 
+##################################################
+
+cd /Herwig/Generators
+library HwSim.so
+create Herwig::HwSim /Herwig/Analysis/HwSim
+insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/HwSim
+
+# where to output the root file: slash "/" is important
+set /Herwig/Analysis/HwSim:OutputLocation ./
+
+# whether to apply charm-jet tagging
+set /Herwig/Analysis/HwSim:CharmTagging Yes
+
+# whether to tag top decay products
+set /Herwig/Analysis/HwSim:TopDecayProducts No
+
+# whether to apply on the fly analysis: located in HwSimAnalysis.h
+set /Herwig/Analysis/HwSim:OnTheFlyAnalysis No
+
+# whether to save the final-state objects
+set /Herwig/Analysis/HwSim:SaveObjects Yes
+
+# whether to save the reconstructed objects
+set /Herwig/Analysis/HwSim:SaveReconstructed No
+
+# save the hard interaction partons
+set /Herwig/Analysis/HwSim:SavePartons Yes
+
+
+##################################################
+## Save the generator
+##################################################
+
+do /Herwig/MatrixElements/Matchbox/Factory:ProductionMode
+
+cd /Herwig/Generators
+saverun LHC-Dijets EventGenerator
