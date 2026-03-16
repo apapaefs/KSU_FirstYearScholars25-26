@@ -135,12 +135,28 @@ The Herwig module has to be loaded on the RPi:
 module load herwig/stable
 ```
 
+**Python 3.13 fix for MadGraph:** MG5_aMC v3.5.1 (bundled with Herwig) is incompatible with Python 3.13 due to PEP 667 changes to `locals()` semantics inside `exec()`. This causes `NameError: name 'mdl_lamWS' is not defined` during `Herwig build`. Apply the patch `model_reader_py313.patch` (included in this repository) to the installed MadGraph:
+
+```bash
+cd /opt/Herwig-install/opt/MG5_aMC_v3_5_1/models/
+sudo cp model_reader.py model_reader.py.bak
+sudo patch < /path/to/model_reader_py313.patch
+```
+
 Herwig must be set up first (build, integrate, mergegrids):
 
 ```bash
 cd Herwig/
 Herwig build LHC-Dijets.in --maxjobs=24
-# (run integration jobs)
+for i in $(seq 0 21); do Herwig integrate --jobid=$i LHC-Dijets.run & done
+Herwig mergegrids LHC-Dijets.run
+```
+
+To re-run after updating the `.in` file:
+
+```bash
+Herwig build LHC-Dijets.in --maxjobs=24
+for i in $(seq 0 21); do Herwig integrate --jobid=$i LHC-Dijets.run & done
 Herwig mergegrids LHC-Dijets.run
 ```
 
