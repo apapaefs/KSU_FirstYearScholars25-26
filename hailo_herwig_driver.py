@@ -1,15 +1,17 @@
 """
-Concurrent Herwig + Hailo di-jet classification driver.
+Concurrent Herwig + Hailo Z+jet classification driver.
 
 Runs Herwig 7 in batches (each with a different seed), producing ROOT files.
 As each ROOT file completes, reads it, finds jets with anti-kT R=0.4,
-matches to parton-level truth, builds 3-channel jet images, and classifies
-each jet using the Hailo-8.
+matches the leading jet to parton-level truth, builds a 3-channel jet image,
+and classifies it as quark or gluon using the Hailo-8.
+
+The Z boson decays to neutrinos (invisible), so each event has one hard jet.
 
 Usage (on Raspberry Pi 5 with Hailo-8):
     PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
         --tag 3ch_16-32-64 \
-        --run-file Herwig/LHC-Dijets.run \
+        --run-file LHC-Zjet.run \
         --workdir Herwig/ \
         --n-batches 10 --batch-size 1000 --seed-start 1
 
@@ -335,7 +337,7 @@ def match_jets_to_partons(jets, partons, dR_max=0.4):
             elif pid == 21:
                 labels.append(0)   # gluon
             else:
-                labels.append(-1)  # unknown (shouldn't happen for pp -> jj)
+                labels.append(-1)  # unknown (e.g. Z with pdgid=23)
         else:
             labels.append(-1)
             matched_pdgids.append(0)
@@ -384,14 +386,12 @@ def classify_jets(jet_constituents_list, hef_path, R=0.4):
 
 def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=20.0):
     """
-    Read a Herwig ROOT file, find jets, match truth, classify with Hailo.
+    Read a Herwig ROOT file, find the leading jet, match truth, classify.
 
     Returns
     -------
-    results : list of dicts, one per event with >=2 jets:
-        jet1_pt, jet1_y, jet1_phi, jet1_prob, jet1_truth, jet1_pdgid,
-        jet2_pt, jet2_y, jet2_phi, jet2_prob, jet2_truth, jet2_pdgid,
-        weight
+    results : list of dicts, one per event with >=1 jet:
+        jet_pt, jet_y, jet_phi, jet_prob, jet_truth, jet_pdgid, weight
     n_total : total number of events in the file
     """
     events = read_herwig_root(filepath)
@@ -402,29 +402,23 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=20.0):
         # Find jets
         jets = find_jets(evt["particles"], R=jet_R, pt_min_jet=jet_pt_min)
 
-        # Need at least 2 jets
-        if len(jets) < 2:
+        # Need at least 1 jet
+        if len(jets) < 1:
             continue
 
-        # Take the two leading jets
-        j1, j2 = jets[0], jets[1]
+        # Take the leading jet
+        j = jets[0]
 
         # Match to parton truth
-        labels, pdgids = match_jets_to_partons([j1, j2], evt["partons"], dR_max=jet_R)
+        labels, pdgids = match_jets_to_partons([j], evt["partons"], dR_max=jet_R)
 
-        # Classify both jets
-        probs = classify_jets(
-            [j1["constituents"], j2["constituents"]],
-            hef_path, R=jet_R
-        )
+        # Classify the jet
+        probs = classify_jets([j["constituents"]], hef_path, R=jet_R)
 
         results.append({
-            "jet1_pt": j1["pt"], "jet1_y": j1["y"], "jet1_phi": j1["phi"],
-            "jet1_prob": float(probs[0]), "jet1_truth": labels[0],
-            "jet1_pdgid": pdgids[0],
-            "jet2_pt": j2["pt"], "jet2_y": j2["y"], "jet2_phi": j2["phi"],
-            "jet2_prob": float(probs[1]), "jet2_truth": labels[1],
-            "jet2_pdgid": pdgids[1],
+            "jet_pt": j["pt"], "jet_y": j["y"], "jet_phi": j["phi"],
+            "jet_prob": float(probs[0]), "jet_truth": labels[0],
+            "jet_pdgid": pdgids[0],
             "weight": evt["weight"],
         })
 
@@ -510,86 +504,65 @@ def print_summary(all_results):
         print("\nNo events were processed.")
         return
 
-    # Flatten
     n_events = len(all_results)
-    jet1_truths = np.array([r["jet1_truth"] for r in all_results])
-    jet2_truths = np.array([r["jet2_truth"] for r in all_results])
-    jet1_probs = np.array([r["jet1_prob"] for r in all_results])
-    jet2_probs = np.array([r["jet2_prob"] for r in all_results])
-    jet1_preds = (jet1_probs > 0.5).astype(int)
-    jet2_preds = (jet2_probs > 0.5).astype(int)
+    truths = np.array([r["jet_truth"] for r in all_results])
+    probs = np.array([r["jet_prob"] for r in all_results])
+    preds = (probs > 0.5).astype(int)
 
-    # Only consider events where both jets have valid truth
-    valid = (jet1_truths >= 0) & (jet2_truths >= 0)
+    # Only consider jets with valid truth
+    valid = truths >= 0
     n_valid = valid.sum()
 
     print("\n" + "=" * 55)
-    print("  HERWIG + HAILO DI-JET CLASSIFICATION SUMMARY")
+    print("  HERWIG + HAILO Z+JET CLASSIFICATION SUMMARY")
     print("=" * 55)
-    print(f"Total events processed:          {n_events}")
-    print(f"Events with valid truth (both):  {n_valid}")
+    print(f"Total events processed:        {n_events}")
+    print(f"Jets with valid truth match:   {n_valid}")
 
     if n_valid == 0:
-        print("No events with valid parton truth matching.")
+        print("No jets with valid parton truth matching.")
         return
 
-    # Per-jet accuracy
-    all_truths = np.concatenate([jet1_truths[valid], jet2_truths[valid]])
-    all_preds = np.concatenate([jet1_preds[valid], jet2_preds[valid]])
-    n_jets = len(all_truths)
-    jet_acc = (all_preds == all_truths).mean()
+    # Accuracy
+    jet_acc = (preds[valid] == truths[valid]).mean()
 
-    quark_mask = all_truths == 1
-    gluon_mask = all_truths == 0
-    quark_eff = (all_preds[quark_mask] == 1).mean() if quark_mask.any() else 0.0
-    gluon_eff = (all_preds[gluon_mask] == 0).mean() if gluon_mask.any() else 0.0
+    quark_mask = truths[valid] == 1
+    gluon_mask = truths[valid] == 0
+    quark_eff = (preds[valid][quark_mask] == 1).mean() if quark_mask.any() else 0.0
+    gluon_eff = (preds[valid][gluon_mask] == 0).mean() if gluon_mask.any() else 0.0
 
-    print(f"\nPer-jet results ({n_jets} jets):")
+    print(f"\nResults ({n_valid} jets):")
     print(f"  Accuracy:         {jet_acc:.4f}")
     print(f"  Quark efficiency: {quark_eff:.4f}  ({quark_mask.sum()} quarks)")
     print(f"  Gluon efficiency: {gluon_eff:.4f}  ({gluon_mask.sum()} gluons)")
 
-    # Event-level: both jets correct
-    both_correct = ((jet1_preds[valid] == jet1_truths[valid]) &
-                    (jet2_preds[valid] == jet2_truths[valid]))
-    evt_acc = both_correct.mean()
-    print(f"\nEvent-level accuracy (both jets correct): {evt_acc:.4f}")
-
-    # Event-level confusion matrix
-    # True categories: qq, qg, gq, gg (ordered by jet1, jet2)
-    # Predicted categories: same
-    cat_names = ["qq", "qg", "gq", "gg"]
-
-    def event_cat(l1, l2):
-        if l1 == 1 and l2 == 1: return 0  # qq
-        if l1 == 1 and l2 == 0: return 1  # qg
-        if l1 == 0 and l2 == 1: return 2  # gq
-        if l1 == 0 and l2 == 0: return 3  # gg
-        return -1
-
-    confusion = np.zeros((4, 4), dtype=int)
+    # Confusion matrix: quark vs gluon
+    confusion = np.zeros((2, 2), dtype=int)
     for r in all_results:
-        if r["jet1_truth"] < 0 or r["jet2_truth"] < 0:
+        if r["jet_truth"] < 0:
             continue
-        true_cat = event_cat(r["jet1_truth"], r["jet2_truth"])
-        pred_cat = event_cat(
-            1 if r["jet1_prob"] > 0.5 else 0,
-            1 if r["jet2_prob"] > 0.5 else 0
-        )
-        if true_cat >= 0 and pred_cat >= 0:
-            confusion[true_cat, pred_cat] += 1
+        t = r["jet_truth"]        # 0=gluon, 1=quark
+        p = 1 if r["jet_prob"] > 0.5 else 0
+        confusion[t, p] += 1
 
-    print(f"\nEvent-level confusion matrix:")
-    print(f"{'':>12s}  Pred:  {'  '.join(f'{c:>5s}' for c in cat_names)}")
+    cat_names = ["gluon", "quark"]
+    print(f"\nConfusion matrix:")
+    print(f"{'':>14s}  Pred: {'  '.join(f'{c:>7s}' for c in cat_names)}")
     for i, name in enumerate(cat_names):
-        row = "  ".join(f"{confusion[i, j]:5d}" for j in range(4))
-        print(f"  True {name}:  {row}")
+        row = "  ".join(f"{confusion[i, j]:7d}" for j in range(2))
+        print(f"  True {name:>5s}:  {row}")
+
+    # Mean quark probability by truth
+    quark_probs_valid = probs[valid]
+    truths_valid = truths[valid]
+    if quark_mask.any():
+        print(f"\nMean quark prob (true quark): {quark_probs_valid[quark_mask].mean():.4f}")
+    if gluon_mask.any():
+        print(f"Mean quark prob (true gluon): {quark_probs_valid[gluon_mask].mean():.4f}")
 
     # Parton flavour breakdown
-    jet1_pdgids = [r["jet1_pdgid"] for r in all_results if r["jet1_truth"] >= 0]
-    jet2_pdgids = [r["jet2_pdgid"] for r in all_results if r["jet2_truth"] >= 0]
-    all_pdgids = jet1_pdgids + jet2_pdgids
     from collections import Counter
+    all_pdgids = [r["jet_pdgid"] for r in all_results if r["jet_truth"] >= 0]
     pdg_counts = Counter(all_pdgids)
     print(f"\nParton flavour breakdown (matched jets):")
     for pid, count in sorted(pdg_counts.items(), key=lambda x: -x[1]):
@@ -604,18 +577,12 @@ def save_results(all_results, filepath):
         return
     np.savez_compressed(
         filepath,
-        jet1_pt=np.array([r["jet1_pt"] for r in all_results]),
-        jet1_y=np.array([r["jet1_y"] for r in all_results]),
-        jet1_phi=np.array([r["jet1_phi"] for r in all_results]),
-        jet1_prob=np.array([r["jet1_prob"] for r in all_results]),
-        jet1_truth=np.array([r["jet1_truth"] for r in all_results]),
-        jet1_pdgid=np.array([r["jet1_pdgid"] for r in all_results]),
-        jet2_pt=np.array([r["jet2_pt"] for r in all_results]),
-        jet2_y=np.array([r["jet2_y"] for r in all_results]),
-        jet2_phi=np.array([r["jet2_phi"] for r in all_results]),
-        jet2_prob=np.array([r["jet2_prob"] for r in all_results]),
-        jet2_truth=np.array([r["jet2_truth"] for r in all_results]),
-        jet2_pdgid=np.array([r["jet2_pdgid"] for r in all_results]),
+        jet_pt=np.array([r["jet_pt"] for r in all_results]),
+        jet_y=np.array([r["jet_y"] for r in all_results]),
+        jet_phi=np.array([r["jet_phi"] for r in all_results]),
+        jet_prob=np.array([r["jet_prob"] for r in all_results]),
+        jet_truth=np.array([r["jet_truth"] for r in all_results]),
+        jet_pdgid=np.array([r["jet_pdgid"] for r in all_results]),
         weight=np.array([r["weight"] for r in all_results]),
     )
     print(f"Results saved to {filepath}")
@@ -627,7 +594,7 @@ def save_results(all_results, filepath):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Concurrent Herwig + Hailo di-jet classification driver"
+        description="Concurrent Herwig + Hailo Z+jet classification driver"
     )
 
     # Model
@@ -639,8 +606,8 @@ def main():
                         help="Direct path to HEF file (overrides tag-based path)")
 
     # Herwig
-    parser.add_argument("--run-file", type=str, default="LHC-Dijets.run",
-                        help="Herwig .run file name (default: LHC-Dijets.run)")
+    parser.add_argument("--run-file", type=str, default="LHC-Zjet.run",
+                        help="Herwig .run file name (default: LHC-Zjet.run)")
     parser.add_argument("--workdir", type=str, default="Herwig",
                         help="Herwig working directory (default: Herwig)")
     parser.add_argument("--n-batches", type=int, default=10,
@@ -692,11 +659,10 @@ def main():
             results, n_total = process_root_file(
                 rf, args.hef, jet_R=args.jet_R, jet_pt_min=args.jet_pt_min
             )
-            print(f"  Events with >=2 jets: {len(results)}/{n_total}")
+            print(f"  Events with >=1 jet: {len(results)}/{n_total}")
             if results:
-                n_valid = sum(1 for r in results
-                              if r["jet1_truth"] >= 0 and r["jet2_truth"] >= 0)
-                print(f"  Events with valid truth: {n_valid}")
+                n_valid = sum(1 for r in results if r["jet_truth"] >= 0)
+                print(f"  Jets with valid truth: {n_valid}")
             all_results.extend(results)
 
     else:
@@ -705,7 +671,7 @@ def main():
         # ──────────────────────────────────────────────
         if not os.path.isfile(os.path.join(args.workdir, args.run_file)):
             print(f"ERROR: Run file not found: {os.path.join(args.workdir, args.run_file)}")
-            print("Have you run 'Herwig build', integration, and 'Herwig mergegrids'?")
+            print("Have you run 'Herwig read LHC-Zjet.in'?")
             sys.exit(1)
 
         print(f"\nStarting concurrent Herwig + Hailo pipeline:")
@@ -742,18 +708,15 @@ def main():
             )
 
             elapsed = time.time() - t0
-            print(f"  Events with >=2 jets: {len(results)}/{n_total}")
+            print(f"  Events with >=1 jet: {len(results)}/{n_total}")
             if results:
                 # Quick per-batch accuracy
-                valid = [r for r in results
-                         if r["jet1_truth"] >= 0 and r["jet2_truth"] >= 0]
+                valid = [r for r in results if r["jet_truth"] >= 0]
                 if valid:
-                    truths = ([r["jet1_truth"] for r in valid] +
-                              [r["jet2_truth"] for r in valid])
-                    preds = ([1 if r["jet1_prob"] > 0.5 else 0 for r in valid] +
-                             [1 if r["jet2_prob"] > 0.5 else 0 for r in valid])
+                    truths = [r["jet_truth"] for r in valid]
+                    preds = [1 if r["jet_prob"] > 0.5 else 0 for r in valid]
                     acc = np.mean(np.array(preds) == np.array(truths))
-                    print(f"  Per-jet accuracy: {acc:.4f} ({len(truths)} jets)")
+                    print(f"  Accuracy: {acc:.4f} ({len(truths)} jets)")
             print(f"  Processing time: {elapsed:.1f}s")
 
             all_results.extend(results)

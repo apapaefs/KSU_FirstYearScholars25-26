@@ -29,7 +29,7 @@ hailo_convert.py            Full Hailo conversion (parse + quantise + compile)
 hailo_compile.py            Hailo compile only (Stage 3)
 hailo_infer.py              Hailo-8 inference on RPi
 hailo_infer_show.py         Interactive viewer with 3D tower plots
-hailo_herwig_driver.py      Concurrent Herwig generation + Hailo classification
+hailo_herwig_driver.py      Concurrent Herwig Z+jet generation + Hailo classification
 onnx_infer.py               ONNX Runtime inference (CPU, no Hailo needed)
 plot_jets.py                Simple single-jet tower plot
 train_qat.py                Quantisation-aware training (optional)
@@ -119,9 +119,9 @@ python hailo_convert.py --tag 3ch_32-64-128
 
 Both sets of results coexist in `output/` without overwriting each other.
 
-### 5. Live Herwig + Hailo di-jet classification
+### 5. Live Herwig + Hailo Z+jet classification
 
-This mode runs Herwig 7 di-jet generation concurrently with Hailo-8 inference on the Raspberry Pi. Herwig produces ROOT files in batches (each with a different seed), and the driver reads them, finds jets, matches parton-level truth, and classifies both jets per event.
+This mode runs Herwig 7 Z+jet generation concurrently with Hailo-8 inference on the Raspberry Pi. The Z decays to neutrinos (invisible), so each event has one hard jet. Herwig produces ROOT files in batches (each with a different seed), and the driver reads them, finds the leading jet, matches parton-level truth, and classifies it as quark or gluon.
 
 **Prerequisites:**
 
@@ -143,21 +143,11 @@ sudo cp model_reader.py model_reader.py.bak
 sudo patch < /path/to/model_reader_py313.patch
 ```
 
-Herwig must be set up first (build, integrate, mergegrids):
+Herwig must be set up first:
 
 ```bash
 cd Herwig/
-Herwig build LHC-Dijets.in --maxjobs=24
-for i in $(seq 0 21); do Herwig integrate --jobid=$i LHC-Dijets.run & done
-Herwig mergegrids LHC-Dijets.run
-```
-
-To re-run after updating the `.in` file:
-
-```bash
-Herwig build LHC-Dijets.in --maxjobs=24
-for i in $(seq 0 21); do Herwig integrate --jobid=$i LHC-Dijets.run & done
-Herwig mergegrids LHC-Dijets.run
+Herwig read LHC-Zjet.in
 ```
 
 **Run live (Herwig + Hailo concurrently):**
@@ -166,7 +156,7 @@ Herwig mergegrids LHC-Dijets.run
 cd /path/to/project
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
-    --run-file LHC-Dijets.run \
+    --run-file LHC-Zjet.run \
     --workdir Herwig/ \
     --n-batches 10 --batch-size 1000 --seed-start 1
 ```
@@ -176,7 +166,7 @@ PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
 ```bash
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
-    --root-files Herwig/LHC-Dijets-S1.root Herwig/LHC-Dijets-S2.root
+    --root-files Herwig/LHC-Zjet-S1.root Herwig/LHC-Zjet-S2.root
 ```
 
 **Save results to file for later analysis:**
@@ -184,6 +174,6 @@ PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
 ```bash
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
-    --root-files Herwig/LHC-Dijets-S1.root \
-    --results output/herwig_dijet_results.npz
+    --root-files Herwig/LHC-Zjet-S1.root \
+    --results output/herwig_zjet_results.npz
 ```
