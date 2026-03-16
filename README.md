@@ -129,6 +129,12 @@ This mode runs Herwig 7 di-jet generation concurrently with Hailo-8 inference on
 pip install uproot fastjet awkward
 ```
 
+The Herwig module has to be loaded on the RPi:
+
+```bash
+module load herwig/stable
+```
+
 Herwig must be set up first (build, integrate, mergegrids):
 
 ```bash
