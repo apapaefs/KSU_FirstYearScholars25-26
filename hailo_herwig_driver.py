@@ -384,13 +384,14 @@ def classify_jets(jet_constituents_list, hef_path, R=0.4):
 # Process a single ROOT file
 # ──────────────────────────────────────────────────────────────────────
 
-def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=20.0):
+def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=500.0,
+                      jet_pt_max=550.0, jet_y_max=1.7):
     """
     Read a Herwig ROOT file, find the leading jet, match truth, classify.
 
     Returns
     -------
-    results : list of dicts, one per event with >=1 jet:
+    results : list of dicts, one per event with >=1 jet passing cuts:
         jet_pt, jet_y, jet_phi, jet_prob, jet_truth, jet_pdgid, weight
     n_total : total number of events in the file
     """
@@ -399,8 +400,8 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=20.0):
     results = []
 
     for evt in events:
-        # Find jets
-        jets = find_jets(evt["particles"], R=jet_R, pt_min_jet=jet_pt_min)
+        # Find jets (use a low clustering threshold; fiducial cuts applied below)
+        jets = find_jets(evt["particles"], R=jet_R, pt_min_jet=20.0)
 
         # Need at least 1 jet
         if len(jets) < 1:
@@ -408,6 +409,12 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=20.0):
 
         # Take the leading jet
         j = jets[0]
+
+        # Apply fiducial cuts
+        if j["pt"] < jet_pt_min or j["pt"] > jet_pt_max:
+            continue
+        if abs(j["y"]) > jet_y_max:
+            continue
 
         # Match to parton truth
         labels, pdgids = match_jets_to_partons([j], evt["partons"], dR_max=jet_R)
@@ -617,11 +624,15 @@ def main():
     parser.add_argument("--seed-start", type=int, default=1,
                         help="Starting random seed (default: 1)")
 
-    # Jet finding
+    # Jet finding and fiducial cuts
     parser.add_argument("--jet-R", type=float, default=0.4,
                         help="Jet radius for anti-kT (default: 0.4)")
-    parser.add_argument("--jet-pt-min", type=float, default=20.0,
-                        help="Minimum jet pT in GeV (default: 20.0)")
+    parser.add_argument("--jet-pt-min", type=float, default=500.0,
+                        help="Minimum jet pT in GeV (default: 500.0)")
+    parser.add_argument("--jet-pt-max", type=float, default=550.0,
+                        help="Maximum jet pT in GeV (default: 550.0)")
+    parser.add_argument("--jet-y-max", type=float, default=1.7,
+                        help="Maximum jet |y| (default: 1.7)")
 
     # Output
     parser.add_argument("--results", type=str, default=None,
@@ -657,7 +668,8 @@ def main():
                 print(f"  WARNING: file not found, skipping")
                 continue
             results, n_total = process_root_file(
-                rf, args.hef, jet_R=args.jet_R, jet_pt_min=args.jet_pt_min
+                rf, args.hef, jet_R=args.jet_R, jet_pt_min=args.jet_pt_min,
+                jet_pt_max=args.jet_pt_max, jet_y_max=args.jet_y_max
             )
             print(f"  Events with >=1 jet: {len(results)}/{n_total}")
             if results:
@@ -677,7 +689,8 @@ def main():
         print(f"\nStarting concurrent Herwig + Hailo pipeline:")
         print(f"  Batches:    {args.n_batches} x {args.batch_size} events")
         print(f"  Seeds:      {args.seed_start} to {args.seed_start + args.n_batches - 1}")
-        print(f"  Jet algo:   anti-kT R={args.jet_R}, pT_min={args.jet_pt_min} GeV")
+        print(f"  Jet algo:   anti-kT R={args.jet_R}")
+        print(f"  Jet cuts:   pT in [{args.jet_pt_min}, {args.jet_pt_max}] GeV, |y| < {args.jet_y_max}")
         print(f"  Workdir:    {args.workdir}")
 
         file_queue = queue.Queue()
@@ -703,8 +716,9 @@ def main():
             t0 = time.time()
 
             results, n_total = process_root_file(
-                root_file, args.hef,
-                jet_R=args.jet_R, jet_pt_min=args.jet_pt_min
+                root_file, args.hef, jet_R=args.jet_R,
+                jet_pt_min=args.jet_pt_min, jet_pt_max=args.jet_pt_max,
+                jet_y_max=args.jet_y_max
             )
 
             elapsed = time.time() - t0
