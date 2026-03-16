@@ -83,6 +83,9 @@ if __name__ == "__main__":
                      (1, 2, 0))  # (3,32,32) -> (32,32,3)
         for i in range(n)
     ])
+    
+    test_images = test_images / test_images.max()
+    
 
     # run inference
     print("Running Hailo inference...")
@@ -102,3 +105,8 @@ if __name__ == "__main__":
     preds = (probs > 0.5).astype(int)
     accuracy = (preds == y[:n]).mean()
     print(f"\nOverall accuracy on {n} jets: {accuracy:.4f}")
+    print("Input value range:", test_images.min(), test_images.max())
+    print("Output shape:", probs.shape)
+    print("Example outputs:", probs[:15])
+
+    # Please check out differences between preprocess_all_jets(...) & jet_to image3ch(...)
