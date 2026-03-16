@@ -14,7 +14,7 @@ Usage (on Raspberry Pi 5 with Hailo-8):
         --n-batches 10 --batch-size 1000 --seed-start 1
 
 Requirements:
-    pip install uproot pyjet awkward numpy
+    pip install uproot fastjet awkward numpy
 """
 
 import argparse
@@ -28,7 +28,8 @@ import time
 import numpy as np
 
 import uproot
-from pyjet import cluster
+import awkward as ak
+import fastjet
 
 from load_jets import jet_to_image_3ch
 from hailo_infer import run_inference
@@ -172,7 +173,6 @@ def find_jets(particles, R=0.4, pt_min_jet=20.0, eta_max=5.0, pt_min_part=0.1):
 
     # Compute pt and eta for filtering
     pt = np.sqrt(px**2 + py**2)
-    p = np.sqrt(px**2 + py**2 + pz**2)
     theta = np.arctan2(pt, pz)
     eta = -np.log(np.tan(theta / 2.0 + 1e-20))
 
@@ -186,57 +186,69 @@ def find_jets(particles, R=0.4, pt_min_jet=20.0, eta_max=5.0, pt_min_part=0.1):
     if mask.sum() == 0:
         return []
 
-    # Build structured array for pyjet
-    # pyjet expects dtype with fields: pT, eta, phi, mass  OR  E, px, py, pz
     filt_E = E[mask]
     filt_px = px[mask]
     filt_py = py[mask]
     filt_pz = pz[mask]
     filt_pdgid = pdgid[mask]
 
-    # pyjet uses the "ep" (E, px, py, pz) convention
-    ep_dtype = np.dtype([("E", "f8"), ("px", "f8"), ("py", "f8"), ("pz", "f8")])
-    pseudojets = np.zeros(len(filt_E), dtype=ep_dtype)
-    pseudojets["E"] = filt_E
-    pseudojets["px"] = filt_px
-    pseudojets["py"] = filt_py
-    pseudojets["pz"] = filt_pz
+    # Build awkward array for scikit-hep fastjet
+    pj_array = ak.zip({
+        "px": filt_px,
+        "py": filt_py,
+        "pz": filt_pz,
+        "E": filt_E,
+    })
 
-    # Cluster with anti-kT (p = -1)
-    sequence = cluster(pseudojets, R=R, p=-1)
-    jets = sequence.inclusive_jets(ptmin=pt_min_jet)
+    # Cluster with anti-kT
+    jetdef = fastjet.JetDefinition(fastjet.antikt_algorithm, R)
+    cluster_seq = fastjet.ClusterSequence(pj_array, jetdef)
 
-    # Sort by pT descending (pyjet already does this, but be explicit)
-    jets = sorted(jets, key=lambda j: j.pt, reverse=True)
+    # Get jets and their constituent indices (indices into our filtered array)
+    jets = cluster_seq.inclusive_jets(min_pt=pt_min_jet)
+    const_indices = cluster_seq.constituent_index(min_pt=pt_min_jet)
 
-    # Also convert filtered particles to [pt, y, phi, pdgid] for constituent lookup
+    # Convert jets to numpy for sorting
+    jet_px = ak.to_numpy(jets["px"])
+    jet_py = ak.to_numpy(jets["py"])
+    jet_pz = ak.to_numpy(jets["pz"])
+    jet_E = ak.to_numpy(jets["E"])
+    jet_pt = np.sqrt(jet_px**2 + jet_py**2)
+
+    # Sort by pT descending
+    pt_order = np.argsort(-jet_pt)
+
+    # Pre-compute filtered particle kinematics for constituent lookup
     filt_ptyphiid = four_vector_to_ptyphiid(filt_E, filt_px, filt_py, filt_pz, filt_pdgid)
 
     jets_out = []
-    for jet in jets:
-        # Get constituent 4-vectors from pyjet
-        constituents_ep = jet.constituents_array()  # structured array with E, px, py, pz
+    for idx in pt_order:
+        jpt = jet_pt[idx]
+        jpx = jet_px[idx]
+        jpy = jet_py[idx]
+        jpz = jet_pz[idx]
+        jE = jet_E[idx]
 
-        # Match constituents back to our filtered particle list to recover pdgid
-        # pyjet constituents are the same objects we passed in, so we can match by E, px
-        const_ptyphiid = []
-        for c in constituents_ep:
-            # Find the matching particle in our filtered list
-            dE = np.abs(filt_E - c["E"])
-            dpx = np.abs(filt_px - c["px"])
-            match_idx = np.argmin(dE + dpx)
-            const_ptyphiid.append(filt_ptyphiid[match_idx])
+        # Jet rapidity and phi
+        eps = 1e-12
+        jy = 0.5 * np.log((jE + jpz + eps) / (jE - jpz + eps))
+        jphi = np.arctan2(jpy, jpx)
+        jmass2 = jE**2 - jpx**2 - jpy**2 - jpz**2
+        jmass = np.sqrt(max(jmass2, 0.0))
 
-        if len(const_ptyphiid) == 0:
+        # Get constituent indices for this jet
+        cidx = ak.to_numpy(const_indices[idx])
+        if len(cidx) == 0:
             continue
 
-        const_arr = np.array(const_ptyphiid)  # shape (n_const, 4): [pt, y, phi, pdgid]
+        # Build constituent array in [pt, y, phi, pdgid] format
+        const_arr = filt_ptyphiid[cidx]  # shape (n_const, 4)
 
         jets_out.append({
-            "pt": jet.pt,
-            "y": jet.rap,
-            "phi": jet.phi,
-            "mass": jet.mass,
+            "pt": float(jpt),
+            "y": float(jy),
+            "phi": float(jphi),
+            "mass": float(jmass),
             "constituents": const_arr,
         })
 
@@ -518,13 +530,6 @@ def print_summary(all_results):
     # Predicted categories: same
     cat_names = ["qq", "qg", "gq", "gg"]
 
-    def cat_index(l1, l2):
-        return l1 * 2 + (1 - l2)  # q=1,g=0 -> qq=0*2+0=0? No...
-        # Let's be explicit:
-        # qq=0, qg=1, gq=2, gg=3
-        # q=1, g=0
-
-    # Redefine: use (truth1, truth2) as key
     def event_cat(l1, l2):
         if l1 == 1 and l2 == 1: return 0  # qq
         if l1 == 1 and l2 == 0: return 1  # qg

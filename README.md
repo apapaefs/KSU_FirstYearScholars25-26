@@ -126,7 +126,7 @@ This mode runs Herwig 7 di-jet generation concurrently with Hailo-8 inference on
 **Prerequisites:**
 
 ```bash
-pip install uproot pyjet awkward
+pip install uproot fastjet awkward
 ```
 
 Herwig must be set up first (build, integrate, mergegrids):
