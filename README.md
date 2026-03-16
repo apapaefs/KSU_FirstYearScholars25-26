@@ -176,7 +176,7 @@ PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
 ```bash
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
-    --root-files Herwig/LHC-Dijets-s1.root Herwig/LHC-Dijets-s2.root
+    --root-files Herwig/LHC-Dijets-S1.root Herwig/LHC-Dijets-S2.root
 ```
 
 **Save results to file for later analysis:**
@@ -184,6 +184,6 @@ PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
 ```bash
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
-    --root-files Herwig/LHC-Dijets-s1.root \
+    --root-files Herwig/LHC-Dijets-S1.root \
     --results output/herwig_dijet_results.npz
 ```

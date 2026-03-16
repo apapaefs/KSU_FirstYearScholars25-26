@@ -438,11 +438,11 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=20.0):
 def find_root_file(workdir, seed, run_name):
     """
     Find the ROOT file produced by Herwig for a given seed.
-    Tries common naming patterns: {run_name}-s{seed}.root, {run_name}-S{seed}.root
+    Tries common naming patterns: {run_name}-S{seed}.root, {run_name}-s{seed}.root
     """
     patterns = [
-        os.path.join(workdir, f"{run_name}-s{seed}.root"),
         os.path.join(workdir, f"{run_name}-S{seed}.root"),
+        os.path.join(workdir, f"{run_name}-s{seed}.root"),
     ]
     for p in patterns:
         if os.path.isfile(p):
