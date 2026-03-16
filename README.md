@@ -29,6 +29,7 @@ hailo_convert.py            Full Hailo conversion (parse + quantise + compile)
 hailo_compile.py            Hailo compile only (Stage 3)
 hailo_infer.py              Hailo-8 inference on RPi
 hailo_infer_show.py         Interactive viewer with 3D tower plots
+hailo_herwig_driver.py      Concurrent Herwig generation + Hailo classification
 onnx_infer.py               ONNX Runtime inference (CPU, no Hailo needed)
 plot_jets.py                Simple single-jet tower plot
 train_qat.py                Quantisation-aware training (optional)
@@ -117,3 +118,50 @@ python hailo_convert.py --tag 3ch_32-64-128
 ```
 
 Both sets of results coexist in `output/` without overwriting each other.
+
+### 5. Live Herwig + Hailo di-jet classification
+
+This mode runs Herwig 7 di-jet generation concurrently with Hailo-8 inference on the Raspberry Pi. Herwig produces ROOT files in batches (each with a different seed), and the driver reads them, finds jets, matches parton-level truth, and classifies both jets per event.
+
+**Prerequisites:**
+
+```bash
+pip install uproot pyjet awkward
+```
+
+Herwig must be set up first (build, integrate, mergegrids):
+
+```bash
+cd Herwig/
+Herwig build LHC-Dijets.in --maxjobs=24
+# (run integration jobs)
+Herwig mergegrids LHC-Dijets.run
+```
+
+**Run live (Herwig + Hailo concurrently):**
+
+```bash
+cd /path/to/project
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
+    --tag 3ch_16-32-64 \
+    --run-file LHC-Dijets.run \
+    --workdir Herwig/ \
+    --n-batches 10 --batch-size 1000 --seed-start 1
+```
+
+**Process existing ROOT files (no Herwig run):**
+
+```bash
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
+    --tag 3ch_16-32-64 \
+    --root-files Herwig/LHC-Dijets-s1.root Herwig/LHC-Dijets-s2.root
+```
+
+**Save results to file for later analysis:**
+
+```bash
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
+    --tag 3ch_16-32-64 \
+    --root-files Herwig/LHC-Dijets-s1.root \
+    --results output/herwig_dijet_results.npz
+```
