@@ -17,10 +17,34 @@ Requirements:
     pip install uproot fastjet awkward numpy
 """
 
-import argparse
-import glob
+# ──────────────────────────────────────────────────────────────────────
+# Fix LD_LIBRARY_PATH conflict: pip fastjet (3.4.3) vs Herwig's bundled
+# libfastjet (3.4.0).  `module load herwig/stable` puts Herwig's lib dir
+# on LD_LIBRARY_PATH, which shadows the pip-installed fastjet's own
+# bundled library and causes an undefined-symbol error at import time.
+#
+# Strategy: on first invocation, save the full LD_LIBRARY_PATH for the
+# Herwig subprocess, strip Herwig paths, and re-exec so the dynamic
+# linker picks up the correct libfastjet for Python.
+# ──────────────────────────────────────────────────────────────────────
 import os
 import sys
+
+_HERWIG_ENV_KEY = '_HERWIG_ORIG_LD_LIBRARY_PATH'
+if _HERWIG_ENV_KEY not in os.environ:
+    os.environ[_HERWIG_ENV_KEY] = os.environ.get('LD_LIBRARY_PATH', '')
+    os.environ['_HERWIG_ORIG_PATH'] = os.environ.get('PATH', '')
+    ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+    filtered = ':'.join(p for p in ld_path.split(':')
+                        if p and 'herwig' not in p.lower())
+    if filtered:
+        os.environ['LD_LIBRARY_PATH'] = filtered
+    elif 'LD_LIBRARY_PATH' in os.environ:
+        del os.environ['LD_LIBRARY_PATH']
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+import argparse
+import glob
 import threading
 import queue
 import subprocess
@@ -437,6 +461,11 @@ def herwig_runner(file_queue, run_file, workdir, n_batches, batch_size,
     """
     Thread target: run Herwig in batches and put ROOT file paths in the queue.
     """
+    # Restore the original LD_LIBRARY_PATH and PATH for the Herwig subprocess
+    herwig_env = os.environ.copy()
+    herwig_env['LD_LIBRARY_PATH'] = os.environ.get(_HERWIG_ENV_KEY, '')
+    herwig_env['PATH'] = os.environ.get('_HERWIG_ORIG_PATH', herwig_env.get('PATH', ''))
+
     for i in range(n_batches):
         seed = seed_start + i
         print(f"\n[Herwig] Starting batch {i+1}/{n_batches} (seed={seed}, "
@@ -444,7 +473,8 @@ def herwig_runner(file_queue, run_file, workdir, n_batches, batch_size,
 
         cmd = ["Herwig", "run", run_file, f"-N{batch_size}", f"-s{seed}"]
         try:
-            result = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=workdir, env=herwig_env,
+                                    capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"[Herwig] WARNING: batch {i+1} returned code {result.returncode}")
                 if result.stderr:
