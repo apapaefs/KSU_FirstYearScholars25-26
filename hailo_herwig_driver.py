@@ -728,6 +728,33 @@ class BatchJetViewer:
         self.idx = 0
         self._next_batch = False  # set True when user wants to skip to next batch
 
+        # Pre-compute batch accuracy stats
+        valid = [r for r in results if r["jet_truth"] >= 0]
+        self.n_valid = len(valid)
+        if self.n_valid > 0:
+            self.n_correct = sum(
+                1 for r in valid
+                if (r["jet_prob"] > 0.5) == (r["jet_truth"] == 1)
+            )
+            self.accuracy = self.n_correct / self.n_valid
+            n_quark = sum(1 for r in valid if r["jet_truth"] == 1)
+            n_gluon = sum(1 for r in valid if r["jet_truth"] == 0)
+            q_correct = sum(1 for r in valid
+                            if r["jet_truth"] == 1 and r["jet_prob"] > 0.5)
+            g_correct = sum(1 for r in valid
+                            if r["jet_truth"] == 0 and r["jet_prob"] <= 0.5)
+            self.quark_eff = q_correct / n_quark if n_quark > 0 else 0.0
+            self.gluon_eff = g_correct / n_gluon if n_gluon > 0 else 0.0
+            self.n_quark = n_quark
+            self.n_gluon = n_gluon
+        else:
+            self.n_correct = 0
+            self.accuracy = 0.0
+            self.quark_eff = 0.0
+            self.gluon_eff = 0.0
+            self.n_quark = 0
+            self.n_gluon = 0
+
         self.fig = plt.figure(figsize=(14, 9))
         self.fig.canvas.manager.set_window_title(
             f"Herwig + Hailo Z+jet — {batch_label}"
@@ -774,14 +801,21 @@ class BatchJetViewer:
             status = "NO TRUTH"
             status_color = "gray"
 
+        # Line 1: batch info + accuracy stats
+        # Line 2: current jet info
+        acc_str = (f"Accuracy: {self.n_correct}/{self.n_valid} "
+                   f"({self.accuracy:.1%})   "
+                   f"Q: {self.quark_eff:.1%} ({self.n_quark})   "
+                   f"G: {self.gluon_eff:.1%} ({self.n_gluon})")
+
         self.fig.suptitle(
-            f"{self.batch_label}   |   "
+            f"{self.batch_label}   |   {acc_str}\n"
             f"Jet {self.idx + 1}/{self.n}   |   "
-            f"$p_T$={r['jet_pt']:.0f} GeV, y={r['jet_y']:.2f}\n"
+            f"$p_T$={r['jet_pt']:.0f} GeV, y={r['jet_y']:.2f}   |   "
             f"True: {true_label}   |   "
             f"Predicted: {pred_label} (prob={prob:.3f})   |   "
             f"{status}",
-            fontsize=12, fontweight="bold", color=status_color,
+            fontsize=11, fontweight="bold", color=status_color,
             y=0.98
         )
 
@@ -789,7 +823,7 @@ class BatchJetViewer:
         _plot_3ch_towers(self.fig, img, R=0.4)
         _plot_combined_towers(self.fig, img, R=0.4)
 
-        self.fig.subplots_adjust(top=0.88, bottom=0.08, hspace=0.3, wspace=0.3)
+        self.fig.subplots_adjust(top=0.86, bottom=0.08, hspace=0.3, wspace=0.3)
         self.fig.canvas.draw_idle()
 
     def next_jet(self, event=None):
