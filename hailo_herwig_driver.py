@@ -428,8 +428,14 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=500.0,
         if abs(j["y"]) > jet_y_max:
             continue
 
-        # Match to parton truth
-        labels, pdgids = match_jets_to_partons([j], evt["partons"], dR_max=jet_R)
+        # Match to parton truth (exclude EW bosons: Z=23, W=24, H=25, gamma=22)
+        ew_ids = {22, 23, 24, 25}
+        qcd_partons = np.array([p for p in evt["partons"]
+                                if abs(int(p[4])) not in ew_ids])
+        labels, pdgids = match_jets_to_partons(
+            [j], qcd_partons if len(qcd_partons) > 0 else evt["partons"][:0],
+            dR_max=jet_R
+        )
 
         # Classify the jet (optionally return images for display)
         if show:
