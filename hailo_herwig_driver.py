@@ -349,7 +349,7 @@ def match_jets_to_partons(jets, partons, dR_max=0.4):
 # Jet classification via Hailo
 # ──────────────────────────────────────────────────────────────────────
 
-def classify_jets(jet_constituents_list, hef_path, R=0.4):
+def classify_jets(jet_constituents_list, hef_path, R=0.4, return_images=False):
     """
     Build 3-channel jet images and run Hailo inference.
 
@@ -358,25 +358,31 @@ def classify_jets(jet_constituents_list, hef_path, R=0.4):
     jet_constituents_list : list of ndarray, each (n_const, 4) [pt, y, phi, pdgid]
     hef_path              : path to Hailo HEF file
     R                     : jet radius for image construction
+    return_images         : if True, also return the NCHW images for display
 
     Returns
     -------
     probs : ndarray of shape (n_jets,) with quark probabilities
+    images_nchw : (only if return_images) list of ndarray (3, 32, 32)
     """
     if len(jet_constituents_list) == 0:
-        return np.array([])
+        return (np.array([]), []) if return_images else np.array([])
 
     # Build images: NCHW (3, 32, 32) then transpose to NHWC (32, 32, 3) for Hailo
-    images = []
+    images_nchw = []
+    images_nhwc = []
     for const in jet_constituents_list:
         img = jet_to_image_3ch(const, R=R, npixels=32, pt_min=0.0, normalize=True)
+        images_nchw.append(img)
         img_nhwc = np.transpose(img, (1, 2, 0))  # (3,32,32) -> (32,32,3)
-        images.append(img_nhwc)
+        images_nhwc.append(img_nhwc)
 
-    images = np.stack(images).astype(np.float32)
+    images_nhwc = np.stack(images_nhwc).astype(np.float32)
 
     # Run Hailo inference
-    probs = run_inference(hef_path, images)
+    probs = run_inference(hef_path, images_nhwc)
+    if return_images:
+        return probs, images_nchw
     return probs
 
 
@@ -385,14 +391,20 @@ def classify_jets(jet_constituents_list, hef_path, R=0.4):
 # ──────────────────────────────────────────────────────────────────────
 
 def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=500.0,
-                      jet_pt_max=550.0, jet_y_max=1.7):
+                      jet_pt_max=550.0, jet_y_max=1.7, show=False):
     """
     Read a Herwig ROOT file, find the leading jet, match truth, classify.
+
+    Parameters
+    ----------
+    show : bool
+        If True, also return NCHW jet images for interactive display.
 
     Returns
     -------
     results : list of dicts, one per event with >=1 jet passing cuts:
         jet_pt, jet_y, jet_phi, jet_prob, jet_truth, jet_pdgid, weight
+        If show=True, also includes 'jet_image' (ndarray shape (3,32,32))
     n_total : total number of events in the file
     """
     events = read_herwig_root(filepath)
@@ -419,15 +431,24 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=500.0,
         # Match to parton truth
         labels, pdgids = match_jets_to_partons([j], evt["partons"], dR_max=jet_R)
 
-        # Classify the jet
-        probs = classify_jets([j["constituents"]], hef_path, R=jet_R)
+        # Classify the jet (optionally return images for display)
+        if show:
+            probs, images_nchw = classify_jets(
+                [j["constituents"]], hef_path, R=jet_R, return_images=True
+            )
+        else:
+            probs = classify_jets([j["constituents"]], hef_path, R=jet_R)
 
-        results.append({
+        result = {
             "jet_pt": j["pt"], "jet_y": j["y"], "jet_phi": j["phi"],
             "jet_prob": float(probs[0]), "jet_truth": labels[0],
             "jet_pdgid": pdgids[0],
             "weight": evt["weight"],
-        })
+        }
+        if show:
+            result["jet_image"] = images_nchw[0]  # (3, 32, 32)
+
+        results.append(result)
 
     return results, n_total
 
@@ -596,6 +617,206 @@ def save_results(all_results, filepath):
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Interactive batch jet viewer (requires matplotlib)
+# ──────────────────────────────────────────────────────────────────────
+
+def _plot_3ch_towers(fig, img_3ch, R=0.4):
+    """
+    Plot 3 channels of a jet image as 3D tower plots side by side.
+    img_3ch: shape (3, npix, npix) in NCHW format.
+    """
+    channel_names = [r"Positive ($q=+1$)", r"Negative ($q=-1$)", r"Neutral ($q=0$)"]
+    channel_colors = ["#d62728", "#1f77b4", "#2ca02c"]
+
+    npix = img_3ch.shape[1]
+    x_edges = np.linspace(-R, R, npix + 1)
+    y_edges = np.linspace(-R, R, npix + 1)
+    x = x_edges[:-1]
+    y = y_edges[:-1]
+    xx, yy = np.meshgrid(x, y, indexing="ij")
+    x0 = xx.ravel()
+    y0 = yy.ravel()
+    z0 = np.zeros_like(x0)
+    dx = (2 * R) / npix
+    dy = (2 * R) / npix
+
+    for ch in range(3):
+        ax = fig.add_subplot(2, 3, ch + 1, projection="3d")
+        dz = img_3ch[ch].ravel()
+        mask = dz > 0
+        if mask.any():
+            ax.bar3d(x0[mask], y0[mask], z0[mask], dx, dy, dz[mask],
+                     shade=True, color=channel_colors[ch], alpha=0.8)
+        ax.set_xlabel(r"$\Delta y$", fontsize=8)
+        ax.set_ylabel(r"$\Delta \phi$", fontsize=8)
+        ax.set_zlabel(r"$p_T$ frac", fontsize=8)
+        ax.set_title(channel_names[ch], fontsize=10)
+        for a in (ax.xaxis, ax.yaxis, ax.zaxis):
+            a.set_tick_params(labelsize=6)
+        ax.view_init(elev=25, azim=-60)
+
+
+def _plot_combined_towers(fig, img_3ch, R=0.4):
+    """Plot all 3 channels overlaid in a single 3D plot."""
+    channel_colors = ["#d62728", "#1f77b4", "#2ca02c"]
+    channel_labels = ["$q=+1$", "$q=-1$", "$q=0$"]
+
+    npix = img_3ch.shape[1]
+    x_edges = np.linspace(-R, R, npix + 1)
+    y_edges = np.linspace(-R, R, npix + 1)
+    x = x_edges[:-1]
+    y = y_edges[:-1]
+    xx, yy = np.meshgrid(x, y, indexing="ij")
+    x0 = xx.ravel()
+    y0 = yy.ravel()
+    z0 = np.zeros_like(x0)
+    dx = (2 * R) / npix
+    dy = (2 * R) / npix
+
+    ax = fig.add_subplot(2, 3, (4, 6), projection="3d")
+    for ch in range(3):
+        dz = img_3ch[ch].ravel()
+        mask = dz > 0
+        if mask.any():
+            ax.bar3d(x0[mask], y0[mask], z0[mask], dx, dy, dz[mask],
+                     shade=True, color=channel_colors[ch], alpha=0.6,
+                     label=channel_labels[ch])
+    ax.set_xlabel(r"$\Delta y$", fontsize=9)
+    ax.set_ylabel(r"$\Delta \phi$", fontsize=9)
+    ax.set_zlabel(r"$p_T$ fraction", fontsize=9)
+    ax.set_title("All channels combined", fontsize=10)
+    ax.legend(fontsize=8, loc="upper right")
+    for a in (ax.xaxis, ax.yaxis, ax.zaxis):
+        a.set_tick_params(labelsize=7)
+    ax.view_init(elev=25, azim=-60)
+
+
+class BatchJetViewer:
+    """
+    Interactive viewer for batch-processed jets with 3D tower plots.
+
+    Navigation:
+      Left/Right arrows or P/N : previous / next jet
+      B or "Next Batch" button : close viewer and proceed to next batch
+      Q                        : quit the viewer
+    """
+
+    def __init__(self, results, batch_label="Batch"):
+        """
+        Parameters
+        ----------
+        results    : list of dicts from process_root_file (must include 'jet_image')
+        batch_label: string shown in the title (e.g. "Batch 3/10")
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.widgets import Button
+
+        # Suppress known Axes3D _button_release bug
+        import mpl_toolkits.mplot3d.axes3d as _axes3d
+        _orig = _axes3d.Axes3D._button_release
+        def _safe(self_ax, event):
+            try:
+                return _orig(self_ax, event)
+            except AttributeError:
+                pass
+        _axes3d.Axes3D._button_release = _safe
+
+        self.plt = plt
+        self.results = results
+        self.batch_label = batch_label
+        self.n = len(results)
+        self.idx = 0
+        self._next_batch = False  # set True when user wants to skip to next batch
+
+        self.fig = plt.figure(figsize=(14, 9))
+        self.fig.canvas.manager.set_window_title(
+            f"Herwig + Hailo Z+jet — {batch_label}"
+        )
+
+        # Buttons: Prev | Next Batch | Next
+        ax_prev = self.fig.add_axes([0.15, 0.01, 0.12, 0.04])
+        ax_batch = self.fig.add_axes([0.42, 0.01, 0.16, 0.04])
+        ax_next = self.fig.add_axes([0.73, 0.01, 0.12, 0.04])
+
+        self.btn_prev = Button(ax_prev, "< Prev")
+        self.btn_batch = Button(ax_batch, "Next Batch (B)")
+        self.btn_next = Button(ax_next, "Next >")
+
+        self.btn_prev.on_clicked(self.prev_jet)
+        self.btn_next.on_clicked(self.next_jet)
+        self.btn_batch.on_clicked(self.skip_to_next_batch)
+
+        self.fig.canvas.mpl_connect("key_press_event", self.on_key)
+
+        self.draw_jet()
+        plt.show()
+
+    def draw_jet(self):
+        """Redraw the current jet display."""
+        # Clear all axes except button axes
+        button_axes = {self.btn_prev.ax, self.btn_batch.ax, self.btn_next.ax}
+        for ax in self.fig.get_axes():
+            if ax not in button_axes:
+                ax.remove()
+
+        r = self.results[self.idx]
+        true_label = "Quark" if r["jet_truth"] == 1 else (
+            "Gluon" if r["jet_truth"] == 0 else "Unknown"
+        )
+        pred_label = "Quark" if r["jet_prob"] > 0.5 else "Gluon"
+        prob = r["jet_prob"]
+
+        if r["jet_truth"] >= 0:
+            correct = (true_label == pred_label)
+            status = "CORRECT" if correct else "WRONG"
+            status_color = "green" if correct else "red"
+        else:
+            status = "NO TRUTH"
+            status_color = "gray"
+
+        self.fig.suptitle(
+            f"{self.batch_label}   |   "
+            f"Jet {self.idx + 1}/{self.n}   |   "
+            f"$p_T$={r['jet_pt']:.0f} GeV, y={r['jet_y']:.2f}\n"
+            f"True: {true_label}   |   "
+            f"Predicted: {pred_label} (prob={prob:.3f})   |   "
+            f"{status}",
+            fontsize=12, fontweight="bold", color=status_color,
+            y=0.98
+        )
+
+        img = r["jet_image"]  # (3, 32, 32)
+        _plot_3ch_towers(self.fig, img, R=0.4)
+        _plot_combined_towers(self.fig, img, R=0.4)
+
+        self.fig.subplots_adjust(top=0.88, bottom=0.08, hspace=0.3, wspace=0.3)
+        self.fig.canvas.draw_idle()
+
+    def next_jet(self, event=None):
+        self.idx = (self.idx + 1) % self.n
+        self.draw_jet()
+
+    def prev_jet(self, event=None):
+        self.idx = (self.idx - 1) % self.n
+        self.draw_jet()
+
+    def skip_to_next_batch(self, event=None):
+        """Close the viewer to proceed to the next batch."""
+        self._next_batch = True
+        self.plt.close(self.fig)
+
+    def on_key(self, event):
+        if event.key in ("right", "n"):
+            self.next_jet()
+        elif event.key in ("left", "p"):
+            self.prev_jet()
+        elif event.key == "b":
+            self.skip_to_next_batch()
+        elif event.key == "q":
+            self.plt.close(self.fig)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Main
 # ──────────────────────────────────────────────────────────────────────
 
@@ -638,6 +859,10 @@ def main():
     parser.add_argument("--results", type=str, default=None,
                         help="Save per-event results to .npz file (optional)")
 
+    # Display
+    parser.add_argument("--show", action="store_true", default=False,
+                        help="Show interactive 3D jet viewer after each batch")
+
     # Mode: skip Herwig, just process existing ROOT files
     parser.add_argument("--root-files", type=str, nargs="+", default=None,
                         help="Process existing ROOT files instead of running Herwig")
@@ -669,13 +894,21 @@ def main():
                 continue
             results, n_total = process_root_file(
                 rf, args.hef, jet_R=args.jet_R, jet_pt_min=args.jet_pt_min,
-                jet_pt_max=args.jet_pt_max, jet_y_max=args.jet_y_max
+                jet_pt_max=args.jet_pt_max, jet_y_max=args.jet_y_max,
+                show=args.show
             )
             print(f"  Events with >=1 jet: {len(results)}/{n_total}")
             if results:
                 n_valid = sum(1 for r in results if r["jet_truth"] >= 0)
                 print(f"  Jets with valid truth: {n_valid}")
             all_results.extend(results)
+
+            # Interactive viewer after each batch
+            if args.show and results:
+                batch_label = f"Batch {i+1}/{len(args.root_files)}"
+                print(f"  Launching viewer ({batch_label})... "
+                      f"(arrows=navigate, B=next batch, Q=quit)")
+                BatchJetViewer(results, batch_label=batch_label)
 
     else:
         # ──────────────────────────────────────────────
@@ -718,7 +951,7 @@ def main():
             results, n_total = process_root_file(
                 root_file, args.hef, jet_R=args.jet_R,
                 jet_pt_min=args.jet_pt_min, jet_pt_max=args.jet_pt_max,
-                jet_y_max=args.jet_y_max
+                jet_y_max=args.jet_y_max, show=args.show
             )
 
             elapsed = time.time() - t0
@@ -734,6 +967,13 @@ def main():
             print(f"  Processing time: {elapsed:.1f}s")
 
             all_results.extend(results)
+
+            # Interactive viewer after each batch
+            if args.show and results:
+                batch_label = f"Batch {batch_num}/{args.n_batches}"
+                print(f"  Launching viewer ({batch_label})... "
+                      f"(arrows=navigate, B=next batch, Q=quit)")
+                BatchJetViewer(results, batch_label=batch_label)
 
         herwig_thread.join()
 
