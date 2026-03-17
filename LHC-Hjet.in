@@ -1,0 +1,80 @@
+# -*- ThePEG-repository -*-
+
+##################################################
+# Example generator based on LHC parameters
+# usage: Herwig read LHC.in
+##################################################
+
+read snippets/PPCollider.in
+
+##################################################
+# Technical parameters for this run
+##################################################
+cd /Herwig/Generators
+
+##################################################
+# LHC physics parameters (override defaults here) 
+##################################################
+
+########################
+## sqrt(s) = 14000 GeV ##
+########################
+set EventGenerator:EventHandler:LuminosityFunction:Energy 14000.0
+
+##################################################
+# Matrix Elements for hadron-hadron collisions 
+# (by default only gamma/Z switched on)
+##################################################
+cd /Herwig/MatrixElements/
+
+
+# W+jet
+# insert SubProcess:MatrixElements[0] MEWJet
+#
+# Higs+jet
+insert SubProcess:MatrixElements[0] MEHiggsJet
+# set the Higgs to stable:
+set /Herwig/Particles/h0:Stable Stable
+## cuts on additional jets
+set /Herwig/Cuts/JetKtCut:MinKT 480*GeV
+set /Herwig/Cuts/JetKtCut:MaxKT 570*GeV
+set /Herwig/Cuts/JetKtCut:MinEta -1.8
+set /Herwig/Cuts/JetKtCut:MaxEta 1.8
+
+##################################################
+## HwSim 
+##################################################
+
+cd /Herwig/Generators
+library HwSim.so
+create Herwig::HwSim /Herwig/Analysis/HwSim
+insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/HwSim
+
+# where to output the root file: slash "/" is important
+set /Herwig/Analysis/HwSim:OutputLocation ./
+
+# whether to apply charm-jet tagging
+set /Herwig/Analysis/HwSim:CharmTagging Yes
+
+# whether to tag top decay products
+set /Herwig/Analysis/HwSim:TopDecayProducts No
+
+# whether to apply on the fly analysis: located in HwSimAnalysis.h
+set /Herwig/Analysis/HwSim:OnTheFlyAnalysis No
+
+# whether to save the final-state objects
+set /Herwig/Analysis/HwSim:SaveObjects Yes
+
+# whether to save the reconstructed objects
+set /Herwig/Analysis/HwSim:SaveReconstructed No
+
+# save the hard interaction partons
+set /Herwig/Analysis/HwSim:SavePartons Yes
+
+
+
+##################################################
+# Save run for later usage with 'Herwig run'
+##################################################
+cd /Herwig/Generators
+saverun LHC-Hjet EventGenerator

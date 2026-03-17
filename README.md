@@ -119,9 +119,14 @@ python hailo_convert.py --tag 3ch_32-64-128
 
 Both sets of results coexist in `output/` without overwriting each other.
 
-### 5. Live Herwig + Hailo Z+jet classification
+### 5. Live Herwig + Hailo classification
 
-This mode runs Herwig 7 Z+jet generation concurrently with Hailo-8 inference on the Raspberry Pi. The Z decays to neutrinos (invisible), so each event has one hard jet. Herwig produces ROOT files in batches (each with a different seed), and the driver reads them, finds the leading jet, matches parton-level truth, and classifies it as quark or gluon.
+This mode runs Herwig 7 event generation concurrently with Hailo-8 inference on the Raspberry Pi. The driver supports any V+jet process where the boson decays invisibly (to neutrinos), leaving one hard jet per event:
+
+- **Z+jet** (`LHC-Zjet`): Z decays to neutrinos
+- **H+jet** (`LHC-Hjet`): H decays to invisible (e.g. H to neutrinos via effective coupling)
+
+Herwig produces ROOT files in batches (each with a different seed), and the driver reads them, finds the leading jet, matches parton-level truth (excluding EW bosons), and classifies it as quark or gluon.
 
 **Prerequisites:**
 
@@ -143,20 +148,29 @@ sudo cp model_reader.py model_reader.py.bak
 sudo patch < /path/to/model_reader_py313.patch
 ```
 
-Herwig must be set up first:
+Herwig must be set up first (choose one):
 
 ```bash
 cd Herwig/
-Herwig read LHC-Zjet.in
+Herwig read LHC-Zjet.in    # Z+jet
+Herwig read LHC-Hjet.in    # H+jet
 ```
 
 **Run live (Herwig + Hailo concurrently):**
 
 ```bash
 cd /path/to/project
+# Z+jet example:
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
     --run-file LHC-Zjet.run \
+    --workdir Herwig/ \
+    --n-batches 10 --batch-size 1000 --seed-start 1
+
+# H+jet example:
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
+    --tag 3ch_16-32-64 \
+    --run-file LHC-Hjet.run \
     --workdir Herwig/ \
     --n-batches 10 --batch-size 1000 --seed-start 1
 ```
@@ -167,6 +181,15 @@ PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
 PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
     --root-files Herwig/LHC-Zjet-S1.root Herwig/LHC-Zjet-S2.root
+```
+
+**With interactive viewer (3D tower plots + particle spray):**
+
+```bash
+PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
+    --tag 3ch_16-32-64 \
+    --root-files Herwig/LHC-Zjet-S1.root \
+    --show
 ```
 
 **Save results to file for later analysis:**
