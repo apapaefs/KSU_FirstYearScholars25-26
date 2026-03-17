@@ -93,9 +93,12 @@ def delta_R(y1, phi1, y2, phi2):
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Neutrino PDG IDs to exclude from jet finding
+# PDG IDs to exclude from jet finding: neutrinos + EW bosons
+# (Herwig may store intermediate particles in the objects array)
 # ──────────────────────────────────────────────────────────────────────
 NEUTRINO_IDS = {12, -12, 14, -14, 16, -16}
+EW_BOSON_IDS = {22, 23, 24, -24, 25}  # gamma, Z, W+, W-, H
+EXCLUDE_FROM_JETS = NEUTRINO_IDS | EW_BOSON_IDS
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -202,10 +205,10 @@ def find_jets(particles, R=0.4, pt_min_jet=20.0, eta_max=5.0, pt_min_part=0.1):
     theta = np.arctan2(pt, pz)
     eta = -np.log(np.tan(theta / 2.0 + 1e-20))
 
-    # Filter: remove neutrinos, apply pt and eta cuts
+    # Filter: remove neutrinos + EW bosons, apply pt and eta cuts
     mask = np.ones(len(particles), dtype=bool)
-    for nid in NEUTRINO_IDS:
-        mask &= (pdgid != nid)
+    for pid in EXCLUDE_FROM_JETS:
+        mask &= (pdgid != pid)
     mask &= (pt > pt_min_part)
     mask &= (np.abs(eta) < eta_max)
 
