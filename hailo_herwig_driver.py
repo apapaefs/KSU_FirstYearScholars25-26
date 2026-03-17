@@ -447,6 +447,7 @@ def process_root_file(filepath, hef_path, jet_R=0.4, jet_pt_min=500.0,
         }
         if show:
             result["jet_image"] = images_nchw[0]  # (3, 32, 32)
+            result["jet_constituents"] = j["constituents"]  # (n_const, 4): [pt, y, phi, pdgid]
 
         results.append(result)
 
@@ -620,10 +621,11 @@ def save_results(all_results, filepath):
 # Interactive batch jet viewer (requires matplotlib)
 # ──────────────────────────────────────────────────────────────────────
 
-def _plot_3ch_towers(fig, img_3ch, R=0.4):
+def _plot_3ch_towers(fig, gs, img_3ch, R=0.4):
     """
-    Plot 3 channels of a jet image as 3D tower plots side by side.
+    Plot 3 channels of a jet image as 3D tower plots.
     img_3ch: shape (3, npix, npix) in NCHW format.
+    gs: list of 3 gridspec cells for the 3 channels.
     """
     channel_names = [r"Positive ($q=+1$)", r"Negative ($q=-1$)", r"Neutral ($q=0$)"]
     channel_colors = ["#d62728", "#1f77b4", "#2ca02c"]
@@ -641,7 +643,7 @@ def _plot_3ch_towers(fig, img_3ch, R=0.4):
     dy = (2 * R) / npix
 
     for ch in range(3):
-        ax = fig.add_subplot(2, 3, ch + 1, projection="3d")
+        ax = fig.add_subplot(gs[ch], projection="3d")
         dz = img_3ch[ch].ravel()
         mask = dz > 0
         if mask.any():
@@ -656,8 +658,10 @@ def _plot_3ch_towers(fig, img_3ch, R=0.4):
         ax.view_init(elev=25, azim=-60)
 
 
-def _plot_combined_towers(fig, img_3ch, R=0.4):
-    """Plot all 3 channels overlaid in a single 3D plot."""
+def _plot_combined_towers(fig, gs_cell, img_3ch, R=0.4):
+    """Plot all 3 channels overlaid in a single 3D plot.
+    gs_cell: a single gridspec cell (may span multiple rows/cols).
+    """
     channel_colors = ["#d62728", "#1f77b4", "#2ca02c"]
     channel_labels = ["$q=+1$", "$q=-1$", "$q=0$"]
 
@@ -673,7 +677,7 @@ def _plot_combined_towers(fig, img_3ch, R=0.4):
     dx = (2 * R) / npix
     dy = (2 * R) / npix
 
-    ax = fig.add_subplot(2, 3, (4, 6), projection="3d")
+    ax = fig.add_subplot(gs_cell, projection="3d")
     for ch in range(3):
         dz = img_3ch[ch].ravel()
         mask = dz > 0
@@ -689,6 +693,77 @@ def _plot_combined_towers(fig, img_3ch, R=0.4):
     for a in (ax.xaxis, ax.yaxis, ax.zaxis):
         a.set_tick_params(labelsize=7)
     ax.view_init(elev=25, azim=-60)
+
+
+def _plot_particle_spray(fig, gs_cell, constituents, jet_y, jet_phi, R=0.4):
+    """
+    Draw the jet as a 2D scatter of constituent particles, colored by charge.
+
+    Parameters
+    ----------
+    constituents : ndarray (n_const, 4) with columns [pt, y, phi, pdgid]
+    jet_y, jet_phi : jet axis for computing relative coordinates
+    R : jet radius (used for axis limits)
+    """
+    from load_jets import PDG_TO_CHARGE
+
+    pt = constituents[:, 0]
+    y = constituents[:, 1]
+    phi = constituents[:, 2]
+    pdgid = constituents[:, 3].astype(int)
+
+    # Relative coordinates centred on jet axis
+    dy = y - jet_y
+    dphi = phi - jet_phi
+    dphi = np.arctan2(np.sin(dphi), np.cos(dphi))  # wrap to [-pi, pi)
+
+    # Charge per particle
+    charges = np.array([PDG_TO_CHARGE.get(int(pid), 0) for pid in pdgid])
+
+    # Marker sizes proportional to pT (scale so typical particles are visible)
+    pt_norm = pt / pt.max() if pt.max() > 0 else pt
+    sizes = 10 + 200 * pt_norm  # range ~10 to ~210
+
+    # Color by charge: red=+1, blue=-1, green=0
+    colors = []
+    for q in charges:
+        if q > 0:
+            colors.append("#d62728")   # red
+        elif q < 0:
+            colors.append("#1f77b4")   # blue
+        else:
+            colors.append("#2ca02c")   # green
+
+    ax = fig.add_subplot(gs_cell)
+    ax.scatter(dy, dphi, s=sizes, c=colors, alpha=0.7, edgecolors="k",
+               linewidths=0.3, zorder=2)
+
+    # Draw jet cone circle
+    theta = np.linspace(0, 2 * np.pi, 80)
+    ax.plot(R * np.cos(theta), R * np.sin(theta), 'k--', lw=0.8, alpha=0.5)
+
+    # Jet axis marker
+    ax.plot(0, 0, 'k+', ms=10, mew=1.5, zorder=3)
+
+    ax.set_xlim(-R * 1.3, R * 1.3)
+    ax.set_ylim(-R * 1.3, R * 1.3)
+    ax.set_aspect("equal")
+    ax.set_xlabel(r"$\Delta y$", fontsize=9)
+    ax.set_ylabel(r"$\Delta \phi$", fontsize=9)
+    ax.set_title("Particle spray", fontsize=10)
+    ax.tick_params(labelsize=7)
+
+    # Legend
+    from matplotlib.lines import Line2D
+    handles = [
+        Line2D([0], [0], marker='o', color='w', markerfacecolor="#d62728",
+               markersize=7, label="$q=+1$"),
+        Line2D([0], [0], marker='o', color='w', markerfacecolor="#1f77b4",
+               markersize=7, label="$q=-1$"),
+        Line2D([0], [0], marker='o', color='w', markerfacecolor="#2ca02c",
+               markersize=7, label="$q=0$"),
+    ]
+    ax.legend(handles=handles, fontsize=7, loc="upper right")
 
 
 class BatchJetViewer:
@@ -755,7 +830,7 @@ class BatchJetViewer:
             self.n_quark = 0
             self.n_gluon = 0
 
-        self.fig = plt.figure(figsize=(14, 9))
+        self.fig = plt.figure(figsize=(16, 9))
         self.fig.canvas.manager.set_window_title(
             f"Herwig + Hailo Z+jet — {batch_label}"
         )
@@ -819,11 +894,20 @@ class BatchJetViewer:
             y=0.98
         )
 
-        img = r["jet_image"]  # (3, 32, 32)
-        _plot_3ch_towers(self.fig, img, R=0.4)
-        _plot_combined_towers(self.fig, img, R=0.4)
+        # Layout: 2 rows x 4 cols via GridSpec
+        #   Top row:    [ch0] [ch1] [ch2] [spray]
+        #   Bottom row: [--- combined 3D ---] [spray]
+        # Spray spans both rows on the right
+        from matplotlib.gridspec import GridSpec
+        gs = GridSpec(2, 4, figure=self.fig,
+                      top=0.84, bottom=0.08, hspace=0.3, wspace=0.35)
 
-        self.fig.subplots_adjust(top=0.86, bottom=0.08, hspace=0.3, wspace=0.3)
+        img = r["jet_image"]  # (3, 32, 32)
+        _plot_3ch_towers(self.fig, [gs[0, 0], gs[0, 1], gs[0, 2]], img, R=0.4)
+        _plot_combined_towers(self.fig, gs[1, 0:3], img, R=0.4)
+        _plot_particle_spray(self.fig, gs[:, 3], r["jet_constituents"],
+                             r["jet_y"], r["jet_phi"], R=0.4)
+
         self.fig.canvas.draw_idle()
 
     def next_jet(self, event=None):
