@@ -672,6 +672,8 @@ def _plot_3ch_towers(fig, gs, img_3ch, R=0.4):
         if mask.any():
             ax.bar3d(x0[mask], y0[mask], z0[mask], dx, dy, dz[mask],
                      shade=True, color=channel_colors[ch], alpha=0.8)
+        ax.set_xlim(-R, R)
+        ax.set_ylim(-R, R)
         ax.set_xlabel(r"$\Delta y$", fontsize=8)
         ax.set_ylabel(r"$\Delta \phi$", fontsize=8)
         ax.set_zlabel(r"$p_T$ frac", fontsize=8)
@@ -708,6 +710,8 @@ def _plot_combined_towers(fig, gs_cell, img_3ch, R=0.4):
             ax.bar3d(x0[mask], y0[mask], z0[mask], dx, dy, dz[mask],
                      shade=True, color=channel_colors[ch], alpha=0.6,
                      label=channel_labels[ch])
+    ax.set_xlim(-R, R)
+    ax.set_ylim(-R, R)
     ax.set_xlabel(r"$\Delta y$", fontsize=9)
     ax.set_ylabel(r"$\Delta \phi$", fontsize=9)
     ax.set_zlabel(r"$p_T$ fraction", fontsize=9)
@@ -962,6 +966,37 @@ class BatchJetViewer:
 
         self.fig.canvas.draw_idle()
 
+    # ── on-screen message overlay ────────────────────────────────────
+
+    def _show_message(self, msg, color="red"):
+        """Flash a temporary text overlay in the centre of the figure."""
+        # Remove any previous message
+        self._clear_message()
+        self._msg_text = self.fig.text(
+            0.5, 0.5, msg,
+            ha="center", va="center", fontsize=16, fontweight="bold",
+            color="white",
+            bbox=dict(boxstyle="round,pad=0.6", fc=color, alpha=0.85),
+            transform=self.fig.transFigure, zorder=100,
+        )
+        self.fig.canvas.draw_idle()
+        # Schedule removal after ~1.5 s via a one-shot timer
+        self._msg_timer = self.fig.canvas.new_timer(interval=1500)
+        self._msg_timer.add_callback(self._clear_message)
+        self._msg_timer.single_shot = True
+        self._msg_timer.start()
+
+    def _clear_message(self):
+        """Remove the overlay text if present."""
+        txt = getattr(self, "_msg_text", None)
+        if txt is not None:
+            try:
+                txt.remove()
+            except ValueError:
+                pass
+            self._msg_text = None
+            self.fig.canvas.draw_idle()
+
     # ── navigation callbacks ──────────────────────────────────────────
 
     def next_jet(self, event=None):
@@ -980,8 +1015,9 @@ class BatchJetViewer:
             self.jet_idx = 0
             self.draw_jet()
         else:
-            print("  [Viewer] Next batch not available yet "
-                  "— still being generated")
+            self._show_message(
+                "Next batch not available yet\n— still being generated —",
+                color="#c0392b")
 
     def prev_batch(self, event=None):
         if self.batch_idx > 0:
@@ -989,7 +1025,9 @@ class BatchJetViewer:
             self.jet_idx = 0
             self.draw_jet()
         else:
-            print("  [Viewer] Already at the first batch")
+            self._show_message(
+                "Already at the first batch",
+                color="#7f8c8d")
 
     def on_key(self, event):
         if event.key in ("right", "n"):
