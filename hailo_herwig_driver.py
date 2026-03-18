@@ -892,6 +892,29 @@ class BatchJetViewer:
             n_quark=n_quark, n_gluon=n_gluon,
         )
 
+    def _aggregate_stats(self):
+        """Compute aggregate accuracy stats across all loaded batches."""
+        totals = dict(n_valid=0, n_correct=0, n_quark=0, n_gluon=0,
+                      q_ok=0, g_ok=0)
+        for _, _, s in self._batches:
+            totals["n_valid"] += s["n_valid"]
+            totals["n_correct"] += s["n_correct"]
+            totals["n_quark"] += s["n_quark"]
+            totals["n_gluon"] += s["n_gluon"]
+            # Reconstruct absolute counts from efficiencies
+            totals["q_ok"] += round(s["quark_eff"] * s["n_quark"])
+            totals["g_ok"] += round(s["gluon_eff"] * s["n_gluon"])
+        nv = totals["n_valid"]
+        return dict(
+            n_valid=nv,
+            n_correct=totals["n_correct"],
+            accuracy=totals["n_correct"] / nv if nv else 0.0,
+            n_quark=totals["n_quark"],
+            n_gluon=totals["n_gluon"],
+            quark_eff=totals["q_ok"] / totals["n_quark"] if totals["n_quark"] else 0.0,
+            gluon_eff=totals["g_ok"] / totals["n_gluon"] if totals["n_gluon"] else 0.0,
+        )
+
     def add_batch(self, results, label):
         """Push a new batch of results into the viewer."""
         stats = self._compute_stats(results)
@@ -963,6 +986,25 @@ class BatchJetViewer:
         _plot_combined_towers(self.fig, gs[1, 0:3], img, R=0.4)
         _plot_particle_spray(self.fig, gs[:, 3], r["jet_constituents"],
                              r["jet_y"], r["jet_phi"], R=0.4)
+
+        # ── aggregate stats (all loaded batches) in lower-left ────────
+        agg = self._aggregate_stats()
+        agg_lines = (
+            f"All {len(self._batches)} batches\n"
+            f"Jets: {agg['n_valid']}  "
+            f"({agg['n_quark']}q + {agg['n_gluon']}g)\n"
+            f"Accuracy: {agg['n_correct']}/{agg['n_valid']} "
+            f"({agg['accuracy']:.1%})\n"
+            f"Quark eff: {agg['quark_eff']:.1%}   "
+            f"Gluon eff: {agg['gluon_eff']:.1%}"
+        )
+        self.fig.text(
+            0.005, 0.065, agg_lines,
+            fontsize=8, fontfamily="monospace", va="bottom",
+            bbox=dict(boxstyle="round,pad=0.4", fc="#ecf0f1",
+                      ec="#95a5a6", alpha=0.9),
+            transform=self.fig.transFigure,
+        )
 
         self.fig.canvas.draw_idle()
 
