@@ -990,19 +990,22 @@ class BatchJetViewer:
         # ── aggregate stats (all loaded batches) in lower-left ────────
         agg = self._aggregate_stats()
         agg_lines = (
-            f"All {len(self._batches)} batches\n"
-            f"Jets: {agg['n_valid']}  "
+            f"  AGGREGATE ({len(self._batches)} batch"
+            f"{'es' if len(self._batches) != 1 else ''})\n"
+            f"  Jets:       {agg['n_valid']}  "
             f"({agg['n_quark']}q + {agg['n_gluon']}g)\n"
-            f"Accuracy: {agg['n_correct']}/{agg['n_valid']} "
+            f"  Accuracy:   {agg['n_correct']}/{agg['n_valid']} "
             f"({agg['accuracy']:.1%})\n"
-            f"Quark eff: {agg['quark_eff']:.1%}   "
-            f"Gluon eff: {agg['gluon_eff']:.1%}"
+            f"  Quark eff:  {agg['quark_eff']:.1%}\n"
+            f"  Gluon eff:  {agg['gluon_eff']:.1%}"
         )
         self.fig.text(
             0.005, 0.065, agg_lines,
-            fontsize=8, fontfamily="monospace", va="bottom",
-            bbox=dict(boxstyle="round,pad=0.4", fc="#ecf0f1",
-                      ec="#95a5a6", alpha=0.9),
+            fontsize=10, fontfamily="monospace", fontweight="bold",
+            va="bottom",
+            bbox=dict(boxstyle="round,pad=0.5", fc="#2c3e50",
+                      ec="#1a252f", alpha=0.92, lw=1.5),
+            color="#ecf0f1",
             transform=self.fig.transFigure,
         )
 
