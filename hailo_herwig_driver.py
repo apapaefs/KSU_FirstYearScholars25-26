@@ -1000,11 +1000,11 @@ class BatchJetViewer:
             f"  Gluon eff:  {agg['gluon_eff']:.1%}"
         )
         self.fig.text(
-            0.005, 0.30, agg_lines,
-            fontsize=12, fontfamily="monospace", fontweight="bold",
-            va="center",
-            bbox=dict(boxstyle="round,pad=0.7", fc="#2c3e50",
-                      ec="#1a252f", alpha=0.92, lw=2),
+            0.12, 0.30, agg_lines,
+            fontsize=14, fontfamily="monospace", fontweight="bold",
+            va="center", ha="center",
+            bbox=dict(boxstyle="round,pad=0.8", fc="#2c3e50",
+                      ec="#1a252f", alpha=0.92, lw=2.5),
             color="#ecf0f1",
             transform=self.fig.transFigure,
         )
