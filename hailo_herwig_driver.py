@@ -981,7 +981,7 @@ class BatchJetViewer:
         )
         self.fig.canvas.draw_idle()
         # Schedule removal after ~1.5 s via a one-shot timer
-        self._msg_timer = self.fig.canvas.new_timer(interval=1500)
+        self._msg_timer = self.fig.canvas.new_timer(interval=3000)
         self._msg_timer.add_callback(self._clear_message)
         self._msg_timer.single_shot = True
         self._msg_timer.start()
