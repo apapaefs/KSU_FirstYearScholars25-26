@@ -991,7 +991,7 @@ class BatchJetViewer:
         agg = self._aggregate_stats()
         agg_lines = (
             f"  AGGREGATE ({len(self._batches)} batch"
-            f"{'es' if len(self._batches) != 1 else ''})\n"
+            f"{'es' if len(self._batches) != 1 else ''})\n\n"
             f"  Jets:       {agg['n_valid']}  "
             f"({agg['n_quark']}q + {agg['n_gluon']}g)\n"
             f"  Accuracy:   {agg['n_correct']}/{agg['n_valid']} "
@@ -1000,11 +1000,11 @@ class BatchJetViewer:
             f"  Gluon eff:  {agg['gluon_eff']:.1%}"
         )
         self.fig.text(
-            0.005, 0.065, agg_lines,
-            fontsize=10, fontfamily="monospace", fontweight="bold",
-            va="bottom",
-            bbox=dict(boxstyle="round,pad=0.5", fc="#2c3e50",
-                      ec="#1a252f", alpha=0.92, lw=1.5),
+            0.005, 0.30, agg_lines,
+            fontsize=12, fontfamily="monospace", fontweight="bold",
+            va="center",
+            bbox=dict(boxstyle="round,pad=0.7", fc="#2c3e50",
+                      ec="#1a252f", alpha=0.92, lw=2),
             color="#ecf0f1",
             transform=self.fig.transFigure,
         )
