@@ -928,6 +928,9 @@ class BatchJetViewer:
         else:
             print(f"  [Viewer] {label} ready — "
                   f"press B or >> to view ({len(results)} jets)")
+            self._show_message(
+                f"{label} ready!\n{len(results)} jets — press B to view",
+                color="#27ae60")
 
     @property
     def _cur(self):
