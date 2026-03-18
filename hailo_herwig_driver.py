@@ -791,20 +791,26 @@ def _plot_particle_spray(fig, gs_cell, constituents, jet_y, jet_phi, R=0.4):
 
 class BatchJetViewer:
     """
-    Interactive viewer for batch-processed jets with 3D tower plots.
+    Persistent interactive viewer for batch-processed jets.
+
+    The viewer window stays open across batches.  New batches are pushed
+    via ``add_batch()`` and become navigable immediately.
 
     Navigation:
-      Left/Right arrows or P/N : previous / next jet
-      B or "Next Batch" button : close viewer and proceed to next batch
-      Q                        : quit the viewer
+      Left / Right  or  P / N : previous / next jet within current batch
+      B             or  >>    : next batch (prints a message if unavailable)
+      V             or  <<    : previous batch
+      Q                       : quit (close the window)
     """
 
-    def __init__(self, results, batch_label="Batch"):
+    # ── construction ──────────────────────────────────────────────────
+
+    def __init__(self, first_results, first_label="Batch 1"):
         """
         Parameters
         ----------
-        results    : list of dicts from process_root_file (must include 'jet_image')
-        batch_label: string shown in the title (e.g. "Batch 3/10")
+        first_results : list of dicts from process_root_file (must have 'jet_image')
+        first_label   : e.g. "Batch 1/10"
         """
         import matplotlib.pyplot as plt
         from matplotlib.widgets import Button
@@ -820,74 +826,101 @@ class BatchJetViewer:
         _axes3d.Axes3D._button_release = _safe
 
         self.plt = plt
-        self.results = results
-        self.batch_label = batch_label
-        self.n = len(results)
-        self.idx = 0
-        self._next_batch = False  # set True when user wants to skip to next batch
+        self.Button = Button
 
-        # Pre-compute batch accuracy stats
-        valid = [r for r in results if r["jet_truth"] >= 0]
-        self.n_valid = len(valid)
-        if self.n_valid > 0:
-            self.n_correct = sum(
-                1 for r in valid
-                if (r["jet_prob"] > 0.5) == (r["jet_truth"] == 1)
-            )
-            self.accuracy = self.n_correct / self.n_valid
-            n_quark = sum(1 for r in valid if r["jet_truth"] == 1)
-            n_gluon = sum(1 for r in valid if r["jet_truth"] == 0)
-            q_correct = sum(1 for r in valid
-                            if r["jet_truth"] == 1 and r["jet_prob"] > 0.5)
-            g_correct = sum(1 for r in valid
-                            if r["jet_truth"] == 0 and r["jet_prob"] <= 0.5)
-            self.quark_eff = q_correct / n_quark if n_quark > 0 else 0.0
-            self.gluon_eff = g_correct / n_gluon if n_gluon > 0 else 0.0
-            self.n_quark = n_quark
-            self.n_gluon = n_gluon
-        else:
-            self.n_correct = 0
-            self.accuracy = 0.0
-            self.quark_eff = 0.0
-            self.gluon_eff = 0.0
-            self.n_quark = 0
-            self.n_gluon = 0
+        # Batch storage: list of (results, label, stats)
+        self._batches = []
+        self.batch_idx = 0
+        self.jet_idx = 0
 
+        # Build the figure (once)
         self.fig = plt.figure(figsize=(16, 9))
         self.fig.canvas.manager.set_window_title(
-            f"Herwig + Hailo Z+jet — {batch_label}"
+            "Herwig + Hailo Jet Viewer"
         )
 
-        # Buttons: Prev | Next Batch | Next
-        ax_prev = self.fig.add_axes([0.15, 0.01, 0.12, 0.04])
-        ax_batch = self.fig.add_axes([0.42, 0.01, 0.16, 0.04])
-        ax_next = self.fig.add_axes([0.73, 0.01, 0.12, 0.04])
+        # Buttons: << Batch | < Prev | Next > | Batch >>
+        ax_pb = self.fig.add_axes([0.05, 0.01, 0.14, 0.04])
+        ax_pj = self.fig.add_axes([0.24, 0.01, 0.12, 0.04])
+        ax_nj = self.fig.add_axes([0.64, 0.01, 0.12, 0.04])
+        ax_nb = self.fig.add_axes([0.81, 0.01, 0.14, 0.04])
 
-        self.btn_prev = Button(ax_prev, "< Prev")
-        self.btn_batch = Button(ax_batch, "Next Batch (B)")
-        self.btn_next = Button(ax_next, "Next >")
+        self.btn_prev_batch = Button(ax_pb, "<< Batch (V)")
+        self.btn_prev_jet   = Button(ax_pj, "< Prev")
+        self.btn_next_jet   = Button(ax_nj, "Next >")
+        self.btn_next_batch = Button(ax_nb, "Batch >> (B)")
 
-        self.btn_prev.on_clicked(self.prev_jet)
-        self.btn_next.on_clicked(self.next_jet)
-        self.btn_batch.on_clicked(self.skip_to_next_batch)
+        self.btn_prev_batch.on_clicked(self.prev_batch)
+        self.btn_prev_jet.on_clicked(self.prev_jet)
+        self.btn_next_jet.on_clicked(self.next_jet)
+        self.btn_next_batch.on_clicked(self.next_batch)
+
+        self._button_axes = {ax_pb, ax_pj, ax_nj, ax_nb}
 
         self.fig.canvas.mpl_connect("key_press_event", self.on_key)
 
-        self.draw_jet()
-        plt.show()
+        # Add the first batch and draw
+        self.add_batch(first_results, first_label)
+
+    # ── batch management ──────────────────────────────────────────────
+
+    @staticmethod
+    def _compute_stats(results):
+        """Pre-compute accuracy stats for one batch."""
+        valid = [r for r in results if r["jet_truth"] >= 0]
+        n_valid = len(valid)
+        if n_valid == 0:
+            return dict(n_valid=0, n_correct=0, accuracy=0.0,
+                        quark_eff=0.0, gluon_eff=0.0, n_quark=0, n_gluon=0)
+        n_correct = sum(1 for r in valid
+                        if (r["jet_prob"] > 0.5) == (r["jet_truth"] == 1))
+        n_quark = sum(1 for r in valid if r["jet_truth"] == 1)
+        n_gluon = sum(1 for r in valid if r["jet_truth"] == 0)
+        q_ok = sum(1 for r in valid
+                   if r["jet_truth"] == 1 and r["jet_prob"] > 0.5)
+        g_ok = sum(1 for r in valid
+                   if r["jet_truth"] == 0 and r["jet_prob"] <= 0.5)
+        return dict(
+            n_valid=n_valid, n_correct=n_correct,
+            accuracy=n_correct / n_valid,
+            quark_eff=q_ok / n_quark if n_quark else 0.0,
+            gluon_eff=g_ok / n_gluon if n_gluon else 0.0,
+            n_quark=n_quark, n_gluon=n_gluon,
+        )
+
+    def add_batch(self, results, label):
+        """Push a new batch of results into the viewer."""
+        stats = self._compute_stats(results)
+        self._batches.append((results, label, stats))
+        n = len(self._batches)
+        if n == 1:
+            # First batch — draw it
+            self.batch_idx = 0
+            self.jet_idx = 0
+            self.draw_jet()
+        else:
+            print(f"  [Viewer] {label} ready — "
+                  f"press B or >> to view ({len(results)} jets)")
+
+    @property
+    def _cur(self):
+        """Current (results, label, stats) tuple."""
+        return self._batches[self.batch_idx]
+
+    # ── drawing ───────────────────────────────────────────────────────
 
     def draw_jet(self):
-        """Redraw the current jet display."""
-        # Clear all axes except button axes
-        button_axes = {self.btn_prev.ax, self.btn_batch.ax, self.btn_next.ax}
+        """Redraw the display for the current batch + jet."""
+        # Clear all axes except buttons
         for ax in self.fig.get_axes():
-            if ax not in button_axes:
+            if ax not in self._button_axes:
                 ax.remove()
 
-        r = self.results[self.idx]
-        true_label = "Quark" if r["jet_truth"] == 1 else (
-            "Gluon" if r["jet_truth"] == 0 else "Unknown"
-        )
+        results, label, stats = self._cur
+        r = results[self.jet_idx]
+
+        true_label = ("Quark" if r["jet_truth"] == 1 else
+                      "Gluon" if r["jet_truth"] == 0 else "Unknown")
         pred_label = "Quark" if r["jet_prob"] > 0.5 else "Gluon"
         prob = r["jet_prob"]
 
@@ -899,33 +932,29 @@ class BatchJetViewer:
             status = "NO TRUTH"
             status_color = "gray"
 
-        # Line 1: batch info + accuracy stats
-        # Line 2: current jet info
-        acc_str = (f"Accuracy: {self.n_correct}/{self.n_valid} "
-                   f"({self.accuracy:.1%})   "
-                   f"Q: {self.quark_eff:.1%} ({self.n_quark})   "
-                   f"G: {self.gluon_eff:.1%} ({self.n_gluon})")
+        s = stats
+        acc_str = (f"Accuracy: {s['n_correct']}/{s['n_valid']} "
+                   f"({s['accuracy']:.1%})   "
+                   f"Q: {s['quark_eff']:.1%} ({s['n_quark']})   "
+                   f"G: {s['gluon_eff']:.1%} ({s['n_gluon']})")
 
         self.fig.suptitle(
-            f"{self.batch_label}   |   {acc_str}\n"
-            f"Jet {self.idx + 1}/{self.n}   |   "
+            f"{label}  [{self.batch_idx+1}/{len(self._batches)} loaded]"
+            f"   |   {acc_str}\n"
+            f"Jet {self.jet_idx + 1}/{len(results)}   |   "
             f"$p_T$={r['jet_pt']:.0f} GeV, y={r['jet_y']:.2f}   |   "
             f"True: {true_label}   |   "
             f"Predicted: {pred_label} (prob={prob:.3f})   |   "
             f"{status}",
             fontsize=11, fontweight="bold", color=status_color,
-            y=0.98
+            y=0.98,
         )
 
-        # Layout: 2 rows x 4 cols via GridSpec
-        #   Top row:    [ch0] [ch1] [ch2] [spray]
-        #   Bottom row: [--- combined 3D ---] [spray]
-        # Spray spans both rows on the right
         from matplotlib.gridspec import GridSpec
         gs = GridSpec(2, 4, figure=self.fig,
                       top=0.84, bottom=0.08, hspace=0.3, wspace=0.35)
 
-        img = r["jet_image"]  # (3, 32, 32)
+        img = r["jet_image"]
         _plot_3ch_towers(self.fig, [gs[0, 0], gs[0, 1], gs[0, 2]], img, R=0.4)
         _plot_combined_towers(self.fig, gs[1, 0:3], img, R=0.4)
         _plot_particle_spray(self.fig, gs[:, 3], r["jet_constituents"],
@@ -933,18 +962,34 @@ class BatchJetViewer:
 
         self.fig.canvas.draw_idle()
 
+    # ── navigation callbacks ──────────────────────────────────────────
+
     def next_jet(self, event=None):
-        self.idx = (self.idx + 1) % self.n
+        results = self._cur[0]
+        self.jet_idx = (self.jet_idx + 1) % len(results)
         self.draw_jet()
 
     def prev_jet(self, event=None):
-        self.idx = (self.idx - 1) % self.n
+        results = self._cur[0]
+        self.jet_idx = (self.jet_idx - 1) % len(results)
         self.draw_jet()
 
-    def skip_to_next_batch(self, event=None):
-        """Close the viewer to proceed to the next batch."""
-        self._next_batch = True
-        self.plt.close(self.fig)
+    def next_batch(self, event=None):
+        if self.batch_idx + 1 < len(self._batches):
+            self.batch_idx += 1
+            self.jet_idx = 0
+            self.draw_jet()
+        else:
+            print("  [Viewer] Next batch not available yet "
+                  "— still being generated")
+
+    def prev_batch(self, event=None):
+        if self.batch_idx > 0:
+            self.batch_idx -= 1
+            self.jet_idx = 0
+            self.draw_jet()
+        else:
+            print("  [Viewer] Already at the first batch")
 
     def on_key(self, event):
         if event.key in ("right", "n"):
@@ -952,7 +997,9 @@ class BatchJetViewer:
         elif event.key in ("left", "p"):
             self.prev_jet()
         elif event.key == "b":
-            self.skip_to_next_batch()
+            self.next_batch()
+        elif event.key in ("v", "B"):       # V or Shift+B
+            self.prev_batch()
         elif event.key == "q":
             self.plt.close(self.fig)
 
@@ -1021,6 +1068,13 @@ def main():
     # Derive the run name from the .run file (e.g. LHC-Dijets.run -> LHC-Dijets)
     run_name = os.path.splitext(os.path.basename(args.run_file))[0]
 
+    # Enable interactive matplotlib if --show
+    viewer = None
+    if args.show:
+        import matplotlib.pyplot as plt
+        plt.ion()
+        print("  Viewer:     enabled (arrows=jets, B/V=batch nav, Q=quit)")
+
     all_results = []
 
     if args.root_files:
@@ -1044,12 +1098,13 @@ def main():
                 print(f"  Jets with valid truth: {n_valid}")
             all_results.extend(results)
 
-            # Interactive viewer after each batch
+            # Push batch to persistent viewer
             if args.show and results:
                 batch_label = f"Batch {i+1}/{len(args.root_files)}"
-                print(f"  Launching viewer ({batch_label})... "
-                      f"(arrows=navigate, B=next batch, Q=quit)")
-                BatchJetViewer(results, batch_label=batch_label)
+                if viewer is None:
+                    viewer = BatchJetViewer(results, first_label=batch_label)
+                else:
+                    viewer.add_batch(results, batch_label)
 
     else:
         # ──────────────────────────────────────────────
@@ -1078,12 +1133,30 @@ def main():
         )
         herwig_thread.start()
 
-        # Process ROOT files as they arrive (main thread)
+        # Process ROOT files as they arrive.
+        # When --show is active, use non-blocking queue.get so we can
+        # keep the matplotlib event loop alive between batches.
         batch_num = 0
-        while True:
-            root_file = file_queue.get()
+        herwig_done = False
+        while not herwig_done:
+            # ── get next ROOT file ──
+            if args.show:
+                # Non-blocking poll: keep GUI responsive while waiting
+                root_file = None
+                while root_file is None and not herwig_done:
+                    try:
+                        root_file = file_queue.get(timeout=0.15)
+                    except queue.Empty:
+                        # Pump matplotlib events so viewer stays interactive
+                        if viewer is not None:
+                            viewer.fig.canvas.flush_events()
+                        continue
+            else:
+                root_file = file_queue.get()
+
             if root_file is None:
-                break  # all batches done
+                herwig_done = True
+                break
 
             batch_num += 1
             print(f"\n[Hailo] Processing batch {batch_num}: {root_file}")
@@ -1109,12 +1182,13 @@ def main():
 
             all_results.extend(results)
 
-            # Interactive viewer after each batch
+            # Push batch to persistent viewer
             if args.show and results:
                 batch_label = f"Batch {batch_num}/{args.n_batches}"
-                print(f"  Launching viewer ({batch_label})... "
-                      f"(arrows=navigate, B=next batch, Q=quit)")
-                BatchJetViewer(results, batch_label=batch_label)
+                if viewer is None:
+                    viewer = BatchJetViewer(results, first_label=batch_label)
+                else:
+                    viewer.add_batch(results, batch_label)
 
         herwig_thread.join()
 
@@ -1125,6 +1199,12 @@ def main():
 
     if args.results:
         save_results(all_results, args.results)
+
+    # Keep the viewer open until the user closes it
+    if viewer is not None:
+        print("\n[Viewer] All batches loaded. Close the window or press Q to exit.")
+        plt.ioff()
+        plt.show()
 
 
 if __name__ == "__main__":
