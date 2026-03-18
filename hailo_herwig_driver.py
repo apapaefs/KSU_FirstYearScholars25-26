@@ -551,11 +551,25 @@ def print_summary(all_results):
     valid = truths >= 0
     n_valid = valid.sum()
 
+    n_unknown = (truths == -1).sum()
+
     print("\n" + "=" * 55)
     print("  HERWIG + HAILO Z+JET CLASSIFICATION SUMMARY")
     print("=" * 55)
     print(f"Total events processed:        {n_events}")
     print(f"Jets with valid truth match:   {n_valid}")
+    if n_unknown > 0:
+        # Diagnose unknown jets: unmatched (pdgid=0) vs matched-but-unknown
+        unmatched_pdgids = [r["jet_pdgid"] for r in all_results if r["jet_truth"] == -1]
+        n_no_match = sum(1 for p in unmatched_pdgids if p == 0)
+        n_strange = sum(1 for p in unmatched_pdgids if p != 0)
+        print(f"  Unknown truth jets:          {n_unknown}")
+        print(f"    No parton within dR:       {n_no_match}")
+        if n_strange > 0:
+            from collections import Counter
+            strange = Counter(unmatched_pdgids)
+            strange.pop(0, None)
+            print(f"    Matched but unknown pdg:   {n_strange}  {dict(strange)}")
 
     if n_valid == 0:
         print("No jets with valid parton truth matching.")
