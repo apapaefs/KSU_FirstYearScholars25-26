@@ -1,0 +1,39 @@
+# -*- ThePEG-repository -*-
+##################################################
+# Z+jet: qg channel only (produces quark jets)
+# usage: Herwig read LHC-Zjet-qg.in
+##################################################
+
+read snippets/PPCollider.in
+
+cd /Herwig/Generators
+set EventGenerator:EventHandler:LuminosityFunction:Energy 14000.0
+
+cd /Herwig/MatrixElements/
+insert SubProcess:MatrixElements[0] MEZJet
+set MEZJet:ZDecay Neutrinos
+set MEZJet:Process qg
+
+## cuts on additional jets
+set /Herwig/Cuts/JetKtCut:MinKT 450*GeV
+set /Herwig/Cuts/JetKtCut:MaxKT 600*GeV
+set /Herwig/Cuts/JetKtCut:MinEta -2.0
+set /Herwig/Cuts/JetKtCut:MaxEta 2.0
+
+##################################################
+## HwSim
+##################################################
+cd /Herwig/Generators
+library HwSim.so
+create Herwig::HwSim /Herwig/Analysis/HwSim
+insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/HwSim
+set /Herwig/Analysis/HwSim:OutputLocation ./
+set /Herwig/Analysis/HwSim:CharmTagging Yes
+set /Herwig/Analysis/HwSim:TopDecayProducts No
+set /Herwig/Analysis/HwSim:OnTheFlyAnalysis No
+set /Herwig/Analysis/HwSim:SaveObjects Yes
+set /Herwig/Analysis/HwSim:SaveReconstructed No
+set /Herwig/Analysis/HwSim:SavePartons Yes
+
+cd /Herwig/Generators
+saverun LHC-Zjet-qg EventGenerator

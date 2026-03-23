@@ -21,6 +21,12 @@ output/                     All generated files (tagged with TAG)
   training_results_TAG.pdf      Training plots
   ...
 
+generate_training_data.py   Herwig Z+jet training data generator
+LHC-Zjet.in                Herwig input: Z+jet (all channels)
+LHC-Zjet-qg.in             Herwig input: Z+jet qg channel (quark jets)
+LHC-Zjet-qbarg.in          Herwig input: Z+jet qbarg channel (antiquark jets)
+LHC-Zjet-qqbar.in          Herwig input: Z+jet qqbar channel (gluon jets)
+LHC-Hjet.in                Herwig input: H+jet (all channels)
 load_jets.py                Data loading + 3-channel image conversion
 model.py                    CNN architecture definition
 train.py                    Training pipeline
@@ -199,4 +205,44 @@ PYTHONPATH=/usr/lib/python3/dist-packages python3 hailo_herwig_driver.py \
     --tag 3ch_16-32-64 \
     --root-files Herwig/LHC-Zjet-S1.root \
     --results output/herwig_zjet_results.npz
+```
+
+### 6. Generate Herwig training data
+
+Generate your own quark/gluon jet training dataset from Herwig Z+jet events, matching the [Zenodo dataset format](https://zenodo.org/records/3164691) (`.npz` with `X` shape `(N, M, 4)` and `y` shape `(N,)`).
+
+Three separate Z+jet channels are used:
+- `LHC-Zjet-qqbar.in` — q+qbar → Z+g → **gluon** jets
+- `LHC-Zjet-qg.in` — q+g → Z+q → **quark** jets
+- `LHC-Zjet-qbarg.in` — qbar+g → Z+qbar → **antiquark** jets (labelled as quark)
+
+The generation script runs each channel in batches, monitors the jet count, and automatically stops each channel when the target is reached.
+
+**Step 1: Prepare the .run files (once per machine):**
+
+```bash
+cd Herwig/
+Herwig read ../LHC-Zjet-qqbar.in
+Herwig read ../LHC-Zjet-qg.in
+Herwig read ../LHC-Zjet-qbarg.in
+```
+
+**Step 2: Generate training data:**
+
+```bash
+python3 generate_training_data.py \
+    --workdir Herwig \
+    --target 50000 \
+    --batch-size 5000 \
+    --output data/herwig_Zjet_50k.npz
+```
+
+This produces `data/herwig_Zjet_50k.npz` containing 50k quark + 50k gluon jets (randomly shuffled), with per-jet constituent arrays `[pT, rapidity, phi, pdgid]` zero-padded to the maximum multiplicity. Fiducial cuts match the Zenodo dataset: anti-kT R=0.4, pT in [500, 550] GeV, |y| < 1.7.
+
+Checkpoint files are saved after each channel (`*_ckpt_LHC-Zjet-*.npz`), so if the run is interrupted you can resume with:
+
+```bash
+python3 generate_training_data.py \
+    --merge-only data/herwig_Zjet_50k_ckpt_*.npz \
+    --output data/herwig_Zjet_50k.npz
 ```
