@@ -332,6 +332,7 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
 
         # Launch all Herwig processes
         procs = []
+        launch_time = time.time()
         for s in seeds:
             cmd = ["Herwig", "run", run_file, f"-N{batch_size}", f"-s{s}"]
             try:
@@ -343,20 +344,51 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
                 print("  ERROR: 'Herwig' not found in PATH")
                 return collected
 
-        # Wait for all to finish
-        failed = 0
+        # Poll processes with live status display
+        status = {s: "running" for s, _ in procs}
+        outputs = {}  # seed -> (stdout, stderr)
         finished_seeds = []
-        for s, p in procs:
-            stdout, stderr = p.communicate()
-            if p.returncode != 0:
-                print(f"    seed {s}: FAILED (rc={p.returncode})")
-                if stderr:
-                    print(f"      stderr: {stderr.decode()[:200]}")
-                failed += 1
-            else:
-                finished_seeds.append(s)
+        failed = 0
 
-        print(f"    {len(finished_seeds)}/{n_parallel} succeeded", flush=True)
+        while any(st == "running" for st in status.values()):
+            for s, p in procs:
+                if status[s] != "running":
+                    continue
+                rc = p.poll()
+                if rc is not None:
+                    stdout, stderr = p.communicate()
+                    outputs[s] = (stdout, stderr)
+                    if rc == 0:
+                        status[s] = "done"
+                        finished_seeds.append(s)
+                    else:
+                        status[s] = f"FAIL(rc={rc})"
+                        failed += 1
+                        if stderr:
+                            print(f"\n    seed {s}: FAILED (rc={rc})")
+                            print(f"      stderr: {stderr.decode()[:200]}")
+
+            elapsed = time.time() - launch_time
+            n_done = sum(1 for st in status.values() if st != "running")
+            slots = []
+            for s in seeds:
+                st = status[s]
+                if st == "running":
+                    slots.append(f"s{s}:running")
+                elif st == "done":
+                    slots.append(f"s{s}:done")
+                else:
+                    slots.append(f"s{s}:FAIL")
+            bar = " | ".join(slots)
+            print(f"\r    [{elapsed:5.0f}s] {bar}  "
+                  f"({n_done}/{n_parallel} complete)", end="", flush=True)
+
+            if any(st == "running" for st in status.values()):
+                time.sleep(2)
+
+        elapsed = time.time() - launch_time
+        print(f"\r    [{elapsed:5.0f}s] {len(finished_seeds)}/{n_parallel} "
+              f"succeeded{' ' * 40}", flush=True)
 
         # Process ROOT files from successful runs
         wave_target = 0
