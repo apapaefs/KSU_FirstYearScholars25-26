@@ -335,17 +335,15 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
         # Launch all Herwig processes with stdout readers for progress
         procs = []
         progress = {}   # seed -> latest event count (int)
-        stderr_buf = {} # seed -> collected stderr bytes
         launch_time = time.time()
 
-        def _read_stdout(seed, pipe, batch_sz):
-            """Reader thread: parse Herwig stdout for event counts.
+        def _read_stderr(seed, pipe):
+            """Reader thread: parse Herwig stderr for event counts.
 
-            Herwig prints progress as CR-delimited lines like:
+            Herwig prints progress to stderr as CR-delimited lines:
                 event>        5       10\\r
-            where the first number is the current event and the second
-            is the total.  We use os.read() for small non-blocking
-            reads so progress updates arrive promptly.
+            First number = current event, second = total.
+            We use os.read() so partial output arrives promptly.
             """
             fd = pipe.fileno()
             pat = re.compile(r'event>\s+(\d+)\s+(\d+)')
@@ -375,9 +373,9 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
                         progress[seed] = int(m.group(1))
             pipe.close()
 
-        def _drain_stderr(seed, pipe):
-            """Reader thread: collect stderr."""
-            stderr_buf[seed] = pipe.read()
+        def _drain_stdout(seed, pipe):
+            """Reader thread: consume stdout so the process doesn't block."""
+            pipe.read()
             pipe.close()
 
         for s in seeds:
@@ -388,14 +386,13 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
                                      stderr=subprocess.PIPE)
                 procs.append((s, p))
                 progress[s] = 0
-                stderr_buf[s] = b""
-                t_out = threading.Thread(target=_read_stdout,
-                                         args=(s, p.stdout, batch_size),
+                t_err = threading.Thread(target=_read_stderr,
+                                         args=(s, p.stderr),
                                          daemon=True)
-                t_err = threading.Thread(target=_drain_stderr,
-                                         args=(s, p.stderr), daemon=True)
-                t_out.start()
+                t_out = threading.Thread(target=_drain_stdout,
+                                         args=(s, p.stdout), daemon=True)
                 t_err.start()
+                t_out.start()
             except FileNotFoundError:
                 print("  ERROR: 'Herwig' not found in PATH")
                 return collected
@@ -417,12 +414,9 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
                         progress[s] = batch_size
                         finished_seeds.append(s)
                     else:
-                        status[s] = f"FAIL"
+                        status[s] = "FAIL"
                         failed += 1
-                        err = stderr_buf.get(s, b"")
-                        if isinstance(err, bytes) and err:
-                            print(f"\n    seed {s}: FAILED (rc={rc})")
-                            print(f"      stderr: {err.decode(errors='replace')[:200]}")
+                        print(f"\n    seed {s}: FAILED (rc={rc})")
 
             elapsed = time.time() - launch_time
             n_done = sum(1 for st in status.values() if st != "running")
