@@ -25,6 +25,27 @@ import glob
 import subprocess
 import time
 import signal
+
+# ── Isolate Python from Herwig's bundled libraries ──────────────────
+# Herwig's activate script prepends its own lib paths (including its own
+# fastjet) to LD_LIBRARY_PATH.  That clashes with the pip-installed
+# fastjet C-extension.  We must clean LD_LIBRARY_PATH *before* the
+# dynamic linker resolves symbols, so we re-exec if contaminated.
+_HERWIG_TOKENS = ('Herwig', 'ThePEG', 'herwig', 'thepeg')
+
+_orig_ld = os.environ.get('LD_LIBRARY_PATH', '')
+if any(tok in _orig_ld for tok in _HERWIG_TOKENS) \
+        and '_HERWIG_ORIG_LD_LIBRARY_PATH' not in os.environ:
+    # First run with Herwig paths — save originals and re-exec clean
+    os.environ['_HERWIG_ORIG_LD_LIBRARY_PATH'] = _orig_ld
+    os.environ['_HERWIG_ORIG_PATH'] = os.environ.get('PATH', '')
+    clean_ld = os.pathsep.join(
+        p for p in _orig_ld.split(os.pathsep)
+        if p and not any(tok in p for tok in _HERWIG_TOKENS)
+    )
+    os.environ['LD_LIBRARY_PATH'] = clean_ld
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
 import numpy as np
 
 import uproot
