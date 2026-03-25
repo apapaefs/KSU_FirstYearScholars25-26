@@ -339,43 +339,40 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
         launch_time = time.time()
 
         def _read_stdout(seed, pipe, batch_sz):
-            """Reader thread: parse Herwig/ThePEG stdout for event counts."""
-            # Patterns for ThePEG progress lines, e.g.:
-            #   "Events done 1200"  /  "Event 1200/5000"  /  "1200 events"
-            #   or just a bare number on a line by itself
-            pat = re.compile(
-                r'(?:Events?\s*(?:done|generated|number)?:?\s*(\d+))'
-                r'|(?:(\d+)\s*/\s*\d+)'
-                r'|(?:(\d+)\s+events?)',
-                re.IGNORECASE,
-            )
-            last = 0
+            """Reader thread: parse Herwig stdout for event counts.
+
+            Herwig prints progress as CR-delimited lines like:
+                event>        5       10\\r
+            where the first number is the current event and the second
+            is the total.  We use os.read() for small non-blocking
+            reads so progress updates arrive promptly.
+            """
+            fd = pipe.fileno()
+            pat = re.compile(r'event>\s+(\d+)\s+(\d+)')
             buf = b""
             while True:
-                chunk = pipe.read(256)
+                try:
+                    chunk = os.read(fd, 4096)
+                except OSError:
+                    break
                 if not chunk:
                     break
                 buf += chunk
-                # Split on both \n and \r (Herwig often uses \r for in-place)
-                while b'\n' in buf or b'\r' in buf:
-                    idx_n = buf.find(b'\n')
+                # Split on \r or \n
+                while b'\r' in buf or b'\n' in buf:
                     idx_r = buf.find(b'\r')
-                    if idx_n < 0:
-                        idx = idx_r
-                    elif idx_r < 0:
+                    idx_n = buf.find(b'\n')
+                    if idx_r < 0:
                         idx = idx_n
+                    elif idx_n < 0:
+                        idx = idx_r
                     else:
-                        idx = min(idx_n, idx_r)
-                    line = buf[:idx].decode(errors="replace").strip()
+                        idx = min(idx_r, idx_n)
+                    line = buf[:idx].decode(errors="replace")
                     buf = buf[idx + 1:]
-                    if not line:
-                        continue
                     m = pat.search(line)
                     if m:
-                        val = int(m.group(1) or m.group(2) or m.group(3))
-                        if val > last:
-                            last = val
-                            progress[seed] = min(val, batch_sz)
+                        progress[seed] = int(m.group(1))
             pipe.close()
 
         def _drain_stderr(seed, pipe):
