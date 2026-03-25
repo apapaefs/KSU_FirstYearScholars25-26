@@ -22,7 +22,9 @@ import os
 import sys
 import argparse
 import glob
+import re
 import subprocess
+import threading
 import time
 import signal
 
@@ -330,9 +332,57 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
               f"(seeds {seeds[0]}–{seeds[-1]}, N={batch_size} each)...",
               flush=True)
 
-        # Launch all Herwig processes
+        # Launch all Herwig processes with stdout readers for progress
         procs = []
+        progress = {}   # seed -> latest event count (int)
+        stderr_buf = {} # seed -> collected stderr bytes
         launch_time = time.time()
+
+        def _read_stdout(seed, pipe, batch_sz):
+            """Reader thread: parse Herwig/ThePEG stdout for event counts."""
+            # Patterns for ThePEG progress lines, e.g.:
+            #   "Events done 1200"  /  "Event 1200/5000"  /  "1200 events"
+            #   or just a bare number on a line by itself
+            pat = re.compile(
+                r'(?:Events?\s*(?:done|generated|number)?:?\s*(\d+))'
+                r'|(?:(\d+)\s*/\s*\d+)'
+                r'|(?:(\d+)\s+events?)',
+                re.IGNORECASE,
+            )
+            last = 0
+            buf = b""
+            while True:
+                chunk = pipe.read(256)
+                if not chunk:
+                    break
+                buf += chunk
+                # Split on both \n and \r (Herwig often uses \r for in-place)
+                while b'\n' in buf or b'\r' in buf:
+                    idx_n = buf.find(b'\n')
+                    idx_r = buf.find(b'\r')
+                    if idx_n < 0:
+                        idx = idx_r
+                    elif idx_r < 0:
+                        idx = idx_n
+                    else:
+                        idx = min(idx_n, idx_r)
+                    line = buf[:idx].decode(errors="replace").strip()
+                    buf = buf[idx + 1:]
+                    if not line:
+                        continue
+                    m = pat.search(line)
+                    if m:
+                        val = int(m.group(1) or m.group(2) or m.group(3))
+                        if val > last:
+                            last = val
+                            progress[seed] = min(val, batch_sz)
+            pipe.close()
+
+        def _drain_stderr(seed, pipe):
+            """Reader thread: collect stderr."""
+            stderr_buf[seed] = pipe.read()
+            pipe.close()
+
         for s in seeds:
             cmd = ["Herwig", "run", run_file, f"-N{batch_size}", f"-s{s}"]
             try:
@@ -340,13 +390,21 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
                 procs.append((s, p))
+                progress[s] = 0
+                stderr_buf[s] = b""
+                t_out = threading.Thread(target=_read_stdout,
+                                         args=(s, p.stdout, batch_size),
+                                         daemon=True)
+                t_err = threading.Thread(target=_drain_stderr,
+                                         args=(s, p.stderr), daemon=True)
+                t_out.start()
+                t_err.start()
             except FileNotFoundError:
                 print("  ERROR: 'Herwig' not found in PATH")
                 return collected
 
         # Poll processes with live status display
         status = {s: "running" for s, _ in procs}
-        outputs = {}  # seed -> (stdout, stderr)
         finished_seeds = []
         failed = 0
 
@@ -356,25 +414,27 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
                     continue
                 rc = p.poll()
                 if rc is not None:
-                    stdout, stderr = p.communicate()
-                    outputs[s] = (stdout, stderr)
+                    p.wait()
                     if rc == 0:
                         status[s] = "done"
+                        progress[s] = batch_size
                         finished_seeds.append(s)
                     else:
-                        status[s] = f"FAIL(rc={rc})"
+                        status[s] = f"FAIL"
                         failed += 1
-                        if stderr:
+                        err = stderr_buf.get(s, b"")
+                        if isinstance(err, bytes) and err:
                             print(f"\n    seed {s}: FAILED (rc={rc})")
-                            print(f"      stderr: {stderr.decode()[:200]}")
+                            print(f"      stderr: {err.decode(errors='replace')[:200]}")
 
             elapsed = time.time() - launch_time
             n_done = sum(1 for st in status.values() if st != "running")
             slots = []
             for s in seeds:
                 st = status[s]
+                evt = progress.get(s, 0)
                 if st == "running":
-                    slots.append(f"s{s}:running")
+                    slots.append(f"s{s}:{evt}/{batch_size}")
                 elif st == "done":
                     slots.append(f"s{s}:done")
                 else:
