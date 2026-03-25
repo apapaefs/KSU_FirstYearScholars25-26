@@ -288,16 +288,17 @@ def find_root_file(workdir, seed, run_name):
 
 def run_channel(run_name, workdir, target, batch_size, seed_start,
                 expected_label, jet_R, pt_min, pt_max, y_max,
-                herwig_env):
+                herwig_env, n_parallel=4):
     """
     Run Herwig batches for one channel until `target` jets of `expected_label`
-    are collected.
+    are collected.  Launches up to `n_parallel` Herwig processes at once.
 
     Parameters
     ----------
     run_name       : e.g. "LHC-Zjet-qg"
     expected_label : 1 for quark channels, 0 for gluon channel
     herwig_env     : environment dict with correct LD_LIBRARY_PATH for Herwig
+    n_parallel     : number of concurrent Herwig runs (default: 4)
 
     Returns
     -------
@@ -314,71 +315,86 @@ def run_channel(run_name, workdir, target, batch_size, seed_start,
     collected = []
     n_target_label = 0
     seed = seed_start
-    batch_num = 0
+    wave_num = 0
 
     print(f"\n{'='*60}")
     print(f"  Channel: {run_name} (collecting {label_name} jets)")
-    print(f"  Target: {target} jets")
+    print(f"  Target: {target} jets, {n_parallel} parallel runs")
     print(f"{'='*60}")
 
     while n_target_label < target:
-        batch_num += 1
-        print(f"\n  [{run_name}] Batch {batch_num} (seed={seed}, "
-              f"N={batch_size})...", end=" ", flush=True)
+        wave_num += 1
 
-        cmd = ["Herwig", "run", run_file, f"-N{batch_size}", f"-s{seed}"]
-        try:
-            result = subprocess.run(cmd, cwd=workdir, env=herwig_env,
-                                    capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"FAILED (rc={result.returncode})")
-                if result.stderr:
-                    print(f"    stderr: {result.stderr[:300]}")
-                seed += 1
+        seeds = list(range(seed, seed + n_parallel))
+        print(f"\n  [{run_name}] Wave {wave_num}: launching {n_parallel} runs "
+              f"(seeds {seeds[0]}–{seeds[-1]}, N={batch_size} each)...",
+              flush=True)
+
+        # Launch all Herwig processes
+        procs = []
+        for s in seeds:
+            cmd = ["Herwig", "run", run_file, f"-N{batch_size}", f"-s{s}"]
+            try:
+                p = subprocess.Popen(cmd, cwd=workdir, env=herwig_env,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+                procs.append((s, p))
+            except FileNotFoundError:
+                print("  ERROR: 'Herwig' not found in PATH")
+                return collected
+
+        # Wait for all to finish
+        failed = 0
+        finished_seeds = []
+        for s, p in procs:
+            stdout, stderr = p.communicate()
+            if p.returncode != 0:
+                print(f"    seed {s}: FAILED (rc={p.returncode})")
+                if stderr:
+                    print(f"      stderr: {stderr.decode()[:200]}")
+                failed += 1
+            else:
+                finished_seeds.append(s)
+
+        print(f"    {len(finished_seeds)}/{n_parallel} succeeded", flush=True)
+
+        # Process ROOT files from successful runs
+        wave_target = 0
+        wave_other = 0
+        wave_unknown = 0
+
+        for s in finished_seeds:
+            root_file = find_root_file(workdir, s, run_name)
+            if root_file is None:
+                print(f"    WARNING: ROOT file not found for seed={s}")
                 continue
-        except FileNotFoundError:
-            print("ERROR: 'Herwig' not found in PATH")
-            break
 
-        root_file = find_root_file(workdir, seed, run_name)
-        if root_file is None:
-            print(f"WARNING: ROOT file not found for seed={seed}")
-            seed += 1
-            continue
+            jets = extract_jets_from_file(
+                root_file, jet_R=jet_R, pt_min=pt_min, pt_max=pt_max,
+                y_max=y_max
+            )
 
-        # Extract jets
-        jets = extract_jets_from_file(
-            root_file, jet_R=jet_R, pt_min=pt_min, pt_max=pt_max, y_max=y_max
-        )
-
-        n_batch_target = 0
-        n_batch_other = 0
-        n_batch_unknown = 0
-
-        for const, label in jets:
-            if label == expected_label:
-                if n_target_label < target:
+            for const, label in jets:
+                if label == expected_label:
                     collected.append((const, label))
                     n_target_label += 1
-                    n_batch_target += 1
-            elif label >= 0:
-                # Also keep the other flavour — might be useful
-                collected.append((const, label))
-                n_batch_other += 1
-            else:
-                n_batch_unknown += 1
+                    wave_target += 1
+                elif label >= 0:
+                    collected.append((const, label))
+                    wave_other += 1
+                else:
+                    wave_unknown += 1
 
-        print(f"done — {n_batch_target} {label_name}, "
-              f"{n_batch_other} other, {n_batch_unknown} unmatched | "
+            try:
+                os.remove(root_file)
+            except OSError:
+                pass
+
+        print(f"    Wave {wave_num} results: {wave_target} {label_name}, "
+              f"{wave_other} other, {wave_unknown} unmatched | "
               f"Total: {n_target_label}/{target}")
 
-        # Clean up ROOT file to save disk space
-        try:
-            os.remove(root_file)
-        except OSError:
-            pass
-
-        seed += 1
+        seed += n_parallel
 
         if n_target_label >= target:
             print(f"\n  [{run_name}] Target reached: {n_target_label} "
@@ -460,6 +476,9 @@ def main():
                         help="Events per Herwig batch (default: 5000)")
     parser.add_argument("--seed-start", type=int, default=1,
                         help="Starting random seed (default: 1)")
+    parser.add_argument("--parallel", type=int, default=4,
+                        help="Number of parallel Herwig runs per channel "
+                             "(default: 4)")
     parser.add_argument("--output", type=str,
                         default="data/herwig_Zjet_50k.npz",
                         help="Output .npz file path")
@@ -547,6 +566,7 @@ def main():
             pt_max=args.jet_pt_max,
             y_max=args.jet_y_max,
             herwig_env=herwig_env,
+            n_parallel=args.parallel,
         )
 
         for const, label in collected:
