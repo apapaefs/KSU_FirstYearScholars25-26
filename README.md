@@ -248,6 +248,17 @@ python3 generate_training_data.py \
     --output data/herwig_Zjet_50k.npz
 ```
 
+Use `--seed-start` to set the starting random seed (default: 1). Each channel uses a different offset added to this value (0 for qqbar, 10000 for qg, 20000 for qbarg), so seeds never collide between channels. Within each channel, seeds increment by `--parallel` per wave.
+
+```bash
+python3 generate_training_data.py \
+    --workdir Herwig \
+    --target 50000 \
+    --batch-size 5000 \
+    --seed-start 100 \
+    --output data/herwig_Zjet_50k.npz
+```
+
 This produces `data/herwig_Zjet_50k.npz` containing 50k quark + 50k gluon jets (randomly shuffled), with per-jet constituent arrays `[pT, rapidity, phi, pdgid]` zero-padded to the maximum multiplicity. Fiducial cuts match the Zenodo dataset: anti-kT R=0.4, pT in [500, 550] GeV, |y| < 1.7.
 
 Checkpoint files are saved after each channel (`*_ckpt_LHC-Zjet-*.npz`), so if the run is interrupted you can resume with:
