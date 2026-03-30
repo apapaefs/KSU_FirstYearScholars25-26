@@ -1,0 +1,378 @@
+[2026-03-04 13:04:01.696] [default] [info] Ran from command: "hailo_convert.py --tag 3ch_4-8-16"
+[2026-03-04 13:04:01.696] [default] [info] Loading network parameters
+[2026-03-04 13:04:01.708] [default] [info] [1;36mStarting Hailo allocation and compilation flow[0m
+[2026-03-04 13:04:01.729] [default] [info] Model name: jet_classifier
+[2026-03-04 13:04:01.731] [default] [info] Building optimization options for network layers...
+[2026-03-04 13:04:01.897] [default] [info] Successfully built optimization options - 0s 166ms
+[2026-03-04 13:04:01.897] [default] [info] Trying to compile the network in a single context
+[2026-03-04 13:04:01.897] [default] [info] Trying to solve in single context
+[2026-03-04 13:04:01.911] [default] [info] Model fits in single context
+[2026-03-04 13:04:01.911] [default] [info] Model fits in single context, trying to increase utilization
+[2026-03-04 13:04:01.912] [default] [info] Initial resources counter with: SCs: 9/384, 16bit SCs: 0/384, APUs: 8/120, IAs: 8/192, L3 weights: 8/768, L3 ios: 8/768, LCUs: 8/96
+[2026-03-04 13:04:02.533] [default] [info] Converged after 29 iterations
+[2026-03-04 13:04:02.533] [default] [info] Final resources: SCs: 40/384, 16bit SCs: 0/384, APUs: 13/120, IAs: 16/192, L3 weights: 8/768, L3 ios: 14/768, LCUs: 12/96
+[2026-03-04 13:04:02.533] [default] [info] Trying to apply higher utilization solution
+[2026-03-04 13:04:02.802] [default] [info] Pre-allocation Resources for jet_classifier_context_0
++---------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| Node                            | Subclusters | L3 Weight Memory Cuts | L3 Output Memory Cuts | L3 Input Memory Cuts | L4 Memory Cuts | IBs | OBs | APUs |
++---------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| input_layer1                    | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
+| conv1_sd0                       | 4           | 0                     | 1                     | 0                    | 0.000          | 0   | 0   | 1    |
+| conv1_sd1                       | 4           | 0                     | 1                     | 0                    | 0.000          | 0   | 0   | 1    |
+| conv1_sdc                       | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| maxpool1_lanes_feature_splitter | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| maxpool1_lanes_2                | 2           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 2    |
+| maxpool1_lanes_concat           | 1           | 0                     | 1                     | 2                    | 0.000          | 0   | 0   | 1    |
+| conv2                           | 8           | 0                     | 4                     | 1                    | 0.000          | 0   | 0   | 1    |
+| maxpool2                        | 1           | 0                     | 1                     | 4                    | 0.000          | 0   | 0   | 1    |
+| conv3                           | 8           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| maxpool3                        | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| fc1                             | 8           | 8                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| fc2                             | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_layer1                   | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
++---------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+TOTAL:  LCUs: 12 (9.375%), Subclusters: 40 (7.8125%), Weight memory cuts: 8 (0.78125%), L3 Output memory cuts: 18 (1.75781%), L3 Input memory cuts: 17 (1.66016%), L3 total cuts: 26 (2.53906%), L4 memory cuts: 0 (0%), IBs: 0 (0%), OBs: 0 (0%), APUs: 13 (8.125%)
+[2026-03-04 13:04:02.805] [default] [info] Pre-allocation buffers for jet_classifier_context_0 buffers:
++---------------------------------+---------------------------------+----------------------------+
+| Src                             | Dst                             | Buffers                    |
++---------------------------------+---------------------------------+----------------------------+
+| input_layer1                    | conv1_sd0                       | 2 (L3 memory cuts: 1)      |
+| input_layer1                    | conv1_sd1                       | 2 (L3 memory cuts: 1)      |
+| conv1_sd0                       | conv1_sdc                       | 2 (L3 memory cuts: 1)      |
+| conv1_sd1                       | conv1_sdc                       | 2 (L3 memory cuts: 1)      |
+| conv1_sdc                       | maxpool1_lanes_feature_splitter | 2[RPC] (L3 memory cuts: 2) |
+| maxpool1_lanes_feature_splitter | maxpool1_lanes_2                | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_2                | maxpool1_lanes_concat           | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_concat           | conv2                           | 5[S] (L3 memory cuts: 1)   |
+| conv2                           | maxpool2                        | 4[RPC] (L3 memory cuts: 4) |
+| maxpool2                        | conv3                           | 2 (L3 memory cuts: 1)      |
+| conv3                           | maxpool3                        | 4 (L3 memory cuts: 1)      |
+| maxpool3                        | fc1                             | 8 (L3 memory cuts: 1)      |
+| fc1                             | fc2                             | 1 (L3 memory cuts: 1)      |
+| fc2                             | output_layer1                   | 2 (L3 memory cuts: 1)      |
++---------------------------------+---------------------------------+----------------------------+
+[2026-03-04 13:04:02.805] [default] [info] Higher utilization solution passed validation, taking it
+[2026-03-04 13:04:02.809] [default] [info] Adjust Edges Start State buffers:
++---------------------------------+---------------------------------+--------------------------+
+| Src                             | Dst                             | Buffers                  |
++---------------------------------+---------------------------------+--------------------------+
+| input_layer1                    | conv1_sd0                       | 2 (L3 memory cuts: 1)    |
+| input_layer1                    | conv1_sd1                       | 2 (L3 memory cuts: 1)    |
+| conv1_sd0                       | conv1_sdc                       | 2 (L3 memory cuts: 1)    |
+| conv1_sd1                       | conv1_sdc                       | 2 (L3 memory cuts: 1)    |
+| conv1_sdc                       | maxpool1_lanes_feature_splitter | 2 (L3 memory cuts: 1)    |
+| maxpool1_lanes_feature_splitter | maxpool1_lanes_2                | 4 (L3 memory cuts: 2)    |
+| maxpool1_lanes_2                | maxpool1_lanes_concat           | 2 (L3 memory cuts: 2)    |
+| maxpool1_lanes_concat           | conv2                           | 2[S] (L3 memory cuts: 1) |
+| conv2                           | maxpool2                        | 4 (L3 memory cuts: 1)    |
+| maxpool2                        | conv3                           | 2 (L3 memory cuts: 1)    |
+| conv3                           | maxpool3                        | 4 (L3 memory cuts: 1)    |
+| maxpool3                        | fc1                             | 8 (L3 memory cuts: 1)    |
+| fc1                             | fc2                             | 2 (L3 memory cuts: 1)    |
+| fc2                             | output_layer1                   | 2 (L3 memory cuts: 1)    |
++---------------------------------+---------------------------------+--------------------------+
+[2026-03-04 13:04:02.852] [default] [info] Adjust Edges After Merges and Joins buffers:
++---------------------------------+---------------------------------+--------------------------+
+| Src                             | Dst                             | Buffers                  |
++---------------------------------+---------------------------------+--------------------------+
+| input_layer1                    | conv1_sd0                       | 2 (L3 memory cuts: 1)    |
+| input_layer1                    | conv1_sd1                       | 2 (L3 memory cuts: 1)    |
+| conv1_sd0                       | conv1_sdc                       | 2 (L3 memory cuts: 1)    |
+| conv1_sd1                       | conv1_sdc                       | 2 (L3 memory cuts: 1)    |
+| conv1_sdc                       | maxpool1_lanes_feature_splitter | 2 (L3 memory cuts: 1)    |
+| maxpool1_lanes_feature_splitter | maxpool1_lanes_2                | 3 (L3 memory cuts: 2)    |
+| maxpool1_lanes_2                | maxpool1_lanes_concat           | 3 (L3 memory cuts: 2)    |
+| maxpool1_lanes_concat           | conv2                           | 5[S] (L3 memory cuts: 1) |
+| conv2                           | maxpool2                        | 4 (L3 memory cuts: 1)    |
+| maxpool2                        | conv3                           | 2 (L3 memory cuts: 1)    |
+| conv3                           | maxpool3                        | 4 (L3 memory cuts: 1)    |
+| maxpool3                        | fc1                             | 8 (L3 memory cuts: 1)    |
+| fc1                             | fc2                             | 1 (L3 memory cuts: 1)    |
+| fc2                             | output_layer1                   | 2 (L3 memory cuts: 1)    |
++---------------------------------+---------------------------------+--------------------------+
+[2026-03-04 13:04:02.912] [default] [info] Adjust Edges Before Dimaffer buffers:
++---------------------------------+---------------------------------+----------------------------+
+| Src                             | Dst                             | Buffers                    |
++---------------------------------+---------------------------------+----------------------------+
+| input_layer1                    | conv1_sd0                       | 2 (L3 memory cuts: 1)      |
+| input_layer1                    | conv1_sd1                       | 2 (L3 memory cuts: 1)      |
+| conv1_sd0                       | conv1_sdc                       | 2 (L3 memory cuts: 1)      |
+| conv1_sd1                       | conv1_sdc                       | 2 (L3 memory cuts: 1)      |
+| conv1_sdc                       | maxpool1_lanes_feature_splitter | 2[RPC] (L3 memory cuts: 2) |
+| maxpool1_lanes_feature_splitter | maxpool1_lanes_2                | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_2                | maxpool1_lanes_concat           | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_concat           | conv2                           | 5[S] (L3 memory cuts: 1)   |
+| conv2                           | maxpool2                        | 4[RPC] (L3 memory cuts: 4) |
+| maxpool2                        | conv3                           | 2 (L3 memory cuts: 1)      |
+| conv3                           | maxpool3                        | 4 (L3 memory cuts: 1)      |
+| maxpool3                        | fc1                             | 8 (L3 memory cuts: 1)      |
+| fc1                             | fc2                             | 1 (L3 memory cuts: 1)      |
+| fc2                             | output_layer1                   | 2 (L3 memory cuts: 1)      |
++---------------------------------+---------------------------------+----------------------------+
+[2026-03-04 13:04:02.918] [default] [info] Adjust Edges After Dimaffer buffers:
++---------------------------------+---------------------------------+----------------------------+
+| Src                             | Dst                             | Buffers                    |
++---------------------------------+---------------------------------+----------------------------+
+| input_layer1                    | conv1_sd0                       | 2 (L3 memory cuts: 1)      |
+| input_layer1                    | conv1_sd1                       | 2 (L3 memory cuts: 1)      |
+| conv1_sd0                       | conv1_sdc                       | 2 (L3 memory cuts: 1)      |
+| conv1_sd1                       | conv1_sdc                       | 2 (L3 memory cuts: 1)      |
+| conv1_sdc                       | maxpool1_lanes_feature_splitter | 2[RPC] (L3 memory cuts: 2) |
+| maxpool1_lanes_feature_splitter | maxpool1_lanes_2                | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_2                | maxpool1_lanes_concat           | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_concat           | conv2                           | 5[S] (L3 memory cuts: 1)   |
+| conv2                           | maxpool2                        | 4[RPC] (L3 memory cuts: 4) |
+| maxpool2                        | conv3                           | 2 (L3 memory cuts: 1)      |
+| conv3                           | maxpool3                        | 4 (L3 memory cuts: 1)      |
+| maxpool3                        | fc1                             | 8 (L3 memory cuts: 1)      |
+| fc1                             | fc2                             | 1 (L3 memory cuts: 1)      |
+| fc2                             | output_layer1                   | 2 (L3 memory cuts: 1)      |
++---------------------------------+---------------------------------+----------------------------+
+[2026-03-04 13:04:03.007] [default] [info] Pre-allocation Resources for jet_classifier_context_0
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| Node                                          | Subclusters | L3 Weight Memory Cuts | L3 Output Memory Cuts | L3 Input Memory Cuts | L4 Memory Cuts | IBs | OBs | APUs |
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| input_layer1                                  | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | 0           | 0                     | 0                     | 0                    | 2.000          | 0   | 0   | 0    |
+| conv1_sd0                                     | 4           | 0                     | 1                     | 0                    | 0.000          | 0   | 0   | 1    |
+| conv1_sd1                                     | 4           | 0                     | 1                     | 0                    | 0.000          | 0   | 0   | 1    |
+| conv1_sdc                                     | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| maxpool1_lanes_feature_splitter               | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| maxpool1_lanes_2                              | 2           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 2    |
+| maxpool1_lanes_concat                         | 1           | 0                     | 1                     | 2                    | 0.000          | 0   | 0   | 1    |
+| conv2                                         | 8           | 0                     | 4                     | 1                    | 0.000          | 0   | 0   | 1    |
+| maxpool2                                      | 1           | 0                     | 1                     | 4                    | 0.000          | 0   | 0   | 1    |
+| conv3                                         | 8           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| maxpool3                                      | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| fc1                                           | 8           | 8                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| fc2                                           | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_layer1                                 | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+TOTAL:  LCUs: 12 (9.375%), Subclusters: 40 (7.8125%), Weight memory cuts: 8 (0.78125%), L3 Output memory cuts: 18 (1.75781%), L3 Input memory cuts: 17 (1.66016%), L3 total cuts: 26 (2.53906%), L4 memory cuts: 2 (7.14286%), IBs: 0 (0%), OBs: 0 (0%), APUs: 13 (8.125%)
+[2026-03-04 13:04:03.010] [default] [info] Pre-allocation buffers for jet_classifier_context_0 buffers:
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+| Src                                           | Dst                                           | Buffers                    |
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+| input_layer1                                  | auto_reshape_from_input_layer1_to_conv1_sd0-1 | 1 (L3 memory cuts: 1)      |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | conv1_sd0                                     | 2 (L4 memory cuts: 1)      |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | conv1_sd1                                     | 2 (L4 memory cuts: 1)      |
+| conv1_sd0                                     | conv1_sdc                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sd1                                     | conv1_sdc                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sdc                                     | maxpool1_lanes_feature_splitter               | 2[RPC] (L3 memory cuts: 2) |
+| maxpool1_lanes_feature_splitter               | maxpool1_lanes_2                              | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_2                              | maxpool1_lanes_concat                         | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_concat                         | conv2                                         | 5[S] (L3 memory cuts: 1)   |
+| conv2                                         | maxpool2                                      | 4[RPC] (L3 memory cuts: 4) |
+| maxpool2                                      | conv3                                         | 2 (L3 memory cuts: 1)      |
+| conv3                                         | maxpool3                                      | 4 (L3 memory cuts: 1)      |
+| maxpool3                                      | fc1                                           | 8 (L3 memory cuts: 1)      |
+| fc1                                           | fc2                                           | 1 (L3 memory cuts: 1)      |
+| fc2                                           | output_layer1                                 | 2 (L3 memory cuts: 1)      |
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+[2026-03-04 13:04:03.010] [default] [info] jet_classifier_context_0 - Bottleneck FPS: 81916.9 (layer: conv1_sdc)
+[2026-03-04 13:04:03.010] [default] [info] jet_classifier_context_0 - Bottleneck FPS: 81916.9 (layer: conv1_sdc)
+[2026-03-04 13:04:03.010] [default] [info] Using Single-context flow
+[2026-03-04 13:04:03.010] [default] [info] Resources optimization params: max_control_utilization=75%, max_compute_utilization=75%, max_compute_16bit_utilization=75%, max_memory_utilization (weights)=75%, max_input_aligner_utilization=75%, max_apu_utilization=75%
+[2026-03-04 13:04:03.018] [default] [info] Pre-Allocation Layers FPS: 
+jet_classifier_context_0: 
+ 
+			 input_layer1: 520,156
+			 auto_reshape_from_input_layer1_to_conv1_sd0-1: 183,739
+			 conv1_sd0: 113,443
+			 conv1_sd1: 116,618
+			 conv1_sdc: 81,916.9
+			 maxpool1_lanes_feature_splitter: 151,343
+			 maxpool1_lanes_2: 122,436
+			 maxpool1_lanes_concat: 250,784
+			 conv2: 85,689.8
+			 maxpool2: 128,411
+			 conv3: 124,572
+			 maxpool3: 134,454
+ 
+			 fc1: 95,579.5
+ 
+			 fc2: 1.3245e+06
+			 output_layer1: 8e+07
+[2026-03-04 13:04:03.020] [default] [info] Partition passed at control_util 0.75.
+[2026-03-04 13:04:03.025] [default] [info] [1;36mValidating layers feasibility[0m
+[2026-03-04 13:04:03.039] [default] [info] [1;32mLayers feasibility validated successfully[0m
+[2026-03-04 13:04:03.039] [default] [info] Running resources allocation (mapping) flow, time per context: 59m 59s
+[2026-03-04 13:04:03.047] [default] [info] Resolve-prepost Buffers jet_classifier_context_0 buffers:
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+| Src                                           | Dst                                           | Buffers                    |
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+| input_layer1                                  | input_to_prepost_26_i0                        | 1 (L3 memory cuts: 1)      |
+| input_to_prepost_26_i0                        | auto_reshape_from_input_layer1_to_conv1_sd0-1 | 1 (L4 memory cuts: 1)      |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | output_from_prepost_28_i0                     | 2 (L4 memory cuts: 1)      |
+| output_from_prepost_28_i0                     | input_to_cluster_unknown_29_i0                | 2 (L4 memory cuts: 1)      |
+| input_to_cluster_unknown_29_i0                | conv1_sd0                                     | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_unknown_29_i0                | conv1_sd1                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sd0                                     | conv1_sdc                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sd1                                     | conv1_sdc                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sdc                                     | maxpool1_lanes_feature_splitter               | 2[RPC] (L3 memory cuts: 2) |
+| maxpool1_lanes_feature_splitter               | maxpool1_lanes_2                              | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_2                              | maxpool1_lanes_concat                         | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_concat                         | conv2                                         | 5[S] (L3 memory cuts: 1)   |
+| conv2                                         | maxpool2                                      | 4[RPC] (L3 memory cuts: 4) |
+| maxpool2                                      | conv3                                         | 2 (L3 memory cuts: 1)      |
+| conv3                                         | maxpool3                                      | 4 (L3 memory cuts: 1)      |
+| maxpool3                                      | fc1                                           | 8 (L3 memory cuts: 1)      |
+| fc1                                           | fc2                                           | 1 (L3 memory cuts: 1)      |
+| fc2                                           | output_from_cluster_unknown_27_i0             | 2 (L3 memory cuts: 1)      |
+| output_from_cluster_unknown_27_i0             | output_layer1                                 | 2 (L3 memory cuts: 1)      |
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+[2026-03-04 13:04:03.154] [default] [info] Post-Split Resources for jet_classifier_context_0, iteration 1 (CP)
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| Node                                          | Subclusters | L3 Weight Memory Cuts | L3 Output Memory Cuts | L3 Input Memory Cuts | L4 Memory Cuts | IBs | OBs | APUs |
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| input_layer1                                  | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
+| input_to_prepost_26_i1                        | 0           | 0                     | 0                     | 0                    | 1.000          | 0   | 0   | 0    |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | 0           | 0                     | 0                     | 0                    | 1.000          | 0   | 0   | 0    |
+| output_from_prepost_46_i1                     | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 0   | 0    |
+| input_to_cluster_0_47_i1                      | 0           | 0                     | 2                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv1_sd0                                     | 4           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_0_27_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_28_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv1_sd1                                     | 4           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_0_29_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_30_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv1_sdc                                     | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_31_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_1_32_i1                      | 0           | 0                     | 2                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool1_lanes_feature_splitter               | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_1_33_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_34_i1                      | 0           | 0                     | 2                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool1_lanes_2                              | 2           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 2    |
+| maxpool1_lanes_concat                         | 1           | 0                     | 1                     | 2                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_35_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_0_36_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv2                                         | 8           | 0                     | 2                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_0_37_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_38_i1                      | 0           | 0                     | 4                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool2                                      | 1           | 0                     | 1                     | 4                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_39_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_4_40_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv3                                         | 8           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_4_41_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_5_42_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool3                                      | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| fc1                                           | 8           | 8                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_5_43_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_44_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| fc2                                           | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_45_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| output_layer1                                 | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+TOTAL:  LCUs: 12 (9.375%), Subclusters: 40 (7.8125%), Weight memory cuts: 8 (0.78125%), L3 Output memory cuts: 32 (3.125%), L3 Input memory cuts: 19 (1.85547%), L3 total cuts: 40 (3.90625%), L4 memory cuts: 2 (7.14286%), IBs: 10 (15.625%), OBs: 10 (15.625%), APUs: 13 (8.125%)
+[2026-03-04 13:04:03.161] [default] [info] Post-Split Buffers for jet_classifier_context_0, iteration 1 (CP) buffers:
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+| Src                                           | Dst                                           | Buffers                    |
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+| input_layer1                                  | input_to_prepost_26_i1                        | 1 (L3 memory cuts: 1)      |
+| input_to_prepost_26_i1                        | auto_reshape_from_input_layer1_to_conv1_sd0-1 | 1 (L4 memory cuts: 1)      |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | output_from_prepost_46_i1                     | 2 (L4 memory cuts: 1)      |
+| output_from_prepost_46_i1                     | input_to_cluster_0_47_i1                      | 2 (L4 memory cuts: 1)      |
+| input_to_cluster_0_47_i1                      | conv1_sd0                                     | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_0_47_i1                      | conv1_sd1                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sd0                                     | output_from_cluster_0_27_i1                   | 2 (L3 memory cuts: 1)      |
+| output_from_cluster_0_27_i1                   | input_to_cluster_3_28_i1                      | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_3_28_i1                      | conv1_sdc                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sd1                                     | output_from_cluster_0_29_i1                   | 2 (L3 memory cuts: 1)      |
+| output_from_cluster_0_29_i1                   | input_to_cluster_3_30_i1                      | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_3_30_i1                      | conv1_sdc                                     | 2 (L3 memory cuts: 1)      |
+| conv1_sdc                                     | output_from_cluster_3_31_i1                   | 2[RPC] (L3 memory cuts: 2) |
+| output_from_cluster_3_31_i1                   | input_to_cluster_1_32_i1                      | 2[RPC] (L3 memory cuts: 2) |
+| input_to_cluster_1_32_i1                      | maxpool1_lanes_feature_splitter               | 2[RPC] (L3 memory cuts: 2) |
+| maxpool1_lanes_feature_splitter               | output_from_cluster_1_33_i1                   | 2 (L3 memory cuts: 2)      |
+| output_from_cluster_1_33_i1                   | input_to_cluster_3_34_i1                      | 2 (L3 memory cuts: 2)      |
+| input_to_cluster_3_34_i1                      | maxpool1_lanes_2                              | 4 (L3 memory cuts: 2)      |
+| maxpool1_lanes_2                              | maxpool1_lanes_concat                         | 3 (L3 memory cuts: 2)      |
+| maxpool1_lanes_concat                         | output_from_cluster_3_35_i1                   | 2[S] (L3 memory cuts: 1)   |
+| output_from_cluster_3_35_i1                   | input_to_cluster_0_36_i1                      | 2[S] (L3 memory cuts: 1)   |
+| input_to_cluster_0_36_i1                      | conv2                                         | 4[S] (L3 memory cuts: 1)   |
+| conv2                                         | output_from_cluster_0_37_i1                   | 2[RPC] (L3 memory cuts: 2) |
+| output_from_cluster_0_37_i1                   | input_to_cluster_3_38_i1                      | 2[RPC] (L3 memory cuts: 2) |
+| input_to_cluster_3_38_i1                      | maxpool2                                      | 4[RPC] (L3 memory cuts: 4) |
+| maxpool2                                      | output_from_cluster_3_39_i1                   | 2 (L3 memory cuts: 1)      |
+| output_from_cluster_3_39_i1                   | input_to_cluster_4_40_i1                      | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_4_40_i1                      | conv3                                         | 2 (L3 memory cuts: 1)      |
+| conv3                                         | output_from_cluster_4_41_i1                   | 2 (L3 memory cuts: 1)      |
+| output_from_cluster_4_41_i1                   | input_to_cluster_5_42_i1                      | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_5_42_i1                      | maxpool3                                      | 4 (L3 memory cuts: 1)      |
+| maxpool3                                      | fc1                                           | 8 (L3 memory cuts: 1)      |
+| fc1                                           | output_from_cluster_5_43_i1                   | 1 (L3 memory cuts: 1)      |
+| output_from_cluster_5_43_i1                   | input_to_cluster_3_44_i1                      | 2 (L3 memory cuts: 1)      |
+| input_to_cluster_3_44_i1                      | fc2                                           | 1 (L3 memory cuts: 1)      |
+| fc2                                           | output_from_cluster_3_45_i1                   | 2 (L3 memory cuts: 1)      |
+| output_from_cluster_3_45_i1                   | output_layer1                                 | 2 (L3 memory cuts: 1)      |
++-----------------------------------------------+-----------------------------------------------+----------------------------+
+[2026-03-04 13:04:03.220] [default] [info] Post-Final-Split Resources for jet_classifier_context_0, iteration 4
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| Node                                          | Subclusters | L3 Weight Memory Cuts | L3 Output Memory Cuts | L3 Input Memory Cuts | L4 Memory Cuts | IBs | OBs | APUs |
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+| input_layer1                                  | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
+| input_to_prepost_26_i1                        | 0           | 0                     | 0                     | 0                    | 1.000          | 0   | 0   | 0    |
+| auto_reshape_from_input_layer1_to_conv1_sd0-1 | 0           | 0                     | 0                     | 0                    | 1.000          | 0   | 0   | 0    |
+| output_from_prepost_46_i1                     | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 0   | 0    |
+| input_to_cluster_0_47_i1                      | 0           | 0                     | 2                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv1_sd0                                     | 4           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_0_27_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_28_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv1_sd1                                     | 4           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_0_29_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_30_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv1_sdc                                     | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_31_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_1_32_i1                      | 0           | 0                     | 2                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool1_lanes_feature_splitter               | 1           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_1_33_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_34_i1                      | 0           | 0                     | 2                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool1_lanes_2                              | 2           | 0                     | 2                     | 2                    | 0.000          | 0   | 0   | 2    |
+| maxpool1_lanes_concat                         | 1           | 0                     | 1                     | 2                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_35_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_0_36_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv2                                         | 8           | 0                     | 2                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_0_37_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_38_i1                      | 0           | 0                     | 4                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool2                                      | 1           | 0                     | 1                     | 4                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_39_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_4_40_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| conv3                                         | 8           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_4_41_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_5_42_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| maxpool3                                      | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| fc1                                           | 8           | 8                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_5_43_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| input_to_cluster_3_44_i1                      | 0           | 0                     | 1                     | 0                    | 0.000          | 1   | 0   | 0    |
+| fc2                                           | 1           | 0                     | 1                     | 1                    | 0.000          | 0   | 0   | 1    |
+| output_from_cluster_3_45_i1                   | 0           | 0                     | 0                     | 0                    | 0.000          | 0   | 1   | 0    |
+| output_layer1                                 | 0           | 0                     | 0                     | 0                    | 0.500          | 0   | 0   | 0    |
++-----------------------------------------------+-------------+-----------------------+-----------------------+----------------------+----------------+-----+-----+------+
+TOTAL:  LCUs: 12 (9.375%), Subclusters: 40 (7.8125%), Weight memory cuts: 8 (0.78125%), L3 Output memory cuts: 32 (3.125%), L3 Input memory cuts: 19 (1.85547%), L3 total cuts: 40 (3.90625%), L4 memory cuts: 2 (7.14286%), IBs: 10 (15.625%), OBs: 10 (15.625%), APUs: 13 (8.125%)
+[2026-03-04 13:04:03.371] [default] [info] Iterations: 4
+Reverts on cluster mapping: 0
+Reverts on inter-cluster connectivity: 0
+Reverts on pre-mapping validation: 0
+Reverts on split failed: 0
+[2026-03-04 13:04:03.371] [default] [info] Resolver passed at control_util 0.75 with 81916.9 FPS. Setting new partition.
+[2026-03-04 13:04:03.397] [default] [info] context jet_classifier_context_0 Post-Allocation FPS from simulation: 67724.9
+[2026-03-04 13:04:03.399] [default] [info] +-----------+---------------------+---------------------+--------------------+
+[2026-03-04 13:04:03.399] [default] [info] | Cluster   | Control Utilization | Compute Utilization | Memory Utilization |
+[2026-03-04 13:04:03.399] [default] [info] +-----------+---------------------+---------------------+--------------------+
+[2026-03-04 13:04:03.399] [default] [info] | cluster_0 | 6.3%                | 1.6%                | 3.9%               |
+[2026-03-04 13:04:03.399] [default] [info] | cluster_1 | 6.3%                | 1.6%                | 3.1%               |
+[2026-03-04 13:04:03.399] [default] [info] | cluster_2 | 18.8%               | 25%                 | 5.5%               |
+[2026-03-04 13:04:03.399] [default] [info] | cluster_4 | 25%                 | 7.8%                | 8.6%               |
+[2026-03-04 13:04:03.399] [default] [info] | cluster_5 | 12.5%               | 14.1%               | 8.6%               |
+[2026-03-04 13:04:03.399] [default] [info] | cluster_6 | 6.3%                | 12.5%               | 1.6%               |
+[2026-03-04 13:04:03.399] [default] [info] +-----------+---------------------+---------------------+--------------------+
+[2026-03-04 13:04:03.399] [default] [info] | Total     | 9.4%                | 7.8%                | 3.9%               |
+[2026-03-04 13:04:03.399] [default] [info] +-----------+---------------------+---------------------+--------------------+
+[2026-03-04 13:04:03.402] [default] [info] [1;32mSuccessful Mapping (allocation time: 1s)[0m
+[2026-03-04 13:04:03.404] [default] [info] [1;36mCompiling kernels of jet_classifier_context_0...[0m
+[2026-03-04 13:04:03.473] [default] [info] Bandwidth of model inputs: 0.0234375 Mbps, outputs: 7.62939e-06 Mbps (for a single frame)
+[2026-03-04 13:04:03.473] [default] [info] Bandwidth of DDR buffers: 0.0 Mbps (for a single frame)
+[2026-03-04 13:04:03.473] [default] [info] Bandwidth of inter context tensors: 0.0 Mbps (for a single frame)
+[2026-03-04 13:04:03.480] [default] [info] [1;36mBuilding HEF...[0m
+[2026-03-04 13:04:03.593] [default] [info] [1;32mSuccessful Compilation (compilation time: 0s)[0m
+[2026-03-04 13:04:04.046] [default] [info] Builder successful
