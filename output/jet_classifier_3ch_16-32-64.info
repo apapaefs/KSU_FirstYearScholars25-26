@@ -1,5 +1,5 @@
 # Jet Classifier Model Info
-# Generated: 2026-03-30 15:08:01
+# Generated: 2026-04-06 15:06:52
 
 tag             = 3ch_16-32-64
 data            = ./data/herwig_Zjet_50k.npz
@@ -19,9 +19,9 @@ scheduler       = ReduceLROnPlateau(patience=3, factor=0.5)
 train_samples   = 50000
 val_samples     = 25000
 test_samples    = 25000
-test_accuracy   = 0.7538
-test_auc        = 0.8255
-best_val_loss   = 0.5081
+test_accuracy   = 0.7617
+test_auc        = 0.8342
+best_val_loss   = 0.4957
 device          = cpu
 
 # Output files
