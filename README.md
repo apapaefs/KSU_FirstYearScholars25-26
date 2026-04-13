@@ -268,3 +268,20 @@ python3 generate_training_data.py \
     --merge-only data/herwig_Zjet_50k_ckpt_*.npz \
     --output data/herwig_Zjet_50k.npz
 ```
+
+### Visualising jet images
+
+Use `jet_image_to_png.py` to render the preprocessed 32×32 jet images as PNGs (3 panels: positive-charge, negative-charge, neutral pT channels):
+
+```bash
+# 5 example quarks + 5 gluons (default)
+python3 jet_image_to_png.py output/jet_images_3ch_8-16-32.npz
+
+# Average jet image per class
+python3 jet_image_to_png.py output/jet_images_3ch_8-16-32.npz --average
+
+# Specific jets by index
+python3 jet_image_to_png.py output/jet_images_3ch_8-16-32.npz --indices 0 42 99
+```
+
+Output PNGs are saved to `plots/jet_images/` by default (override with `--outdir`).
