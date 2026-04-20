@@ -98,7 +98,7 @@ def plot_3ch_towers(fig, img_3ch, R=0.4):
             ax.bar3d(x0[mask], y0[mask], z0[mask], dx, dy, dz[mask],
                      shade=True, color=channel_colors[ch], alpha=0.8)
 
-        ax.set_xlabel(r"$\Delta y$", fontsize=8)
+        ax.set_xlabel(r"$\Delta \eta$", fontsize=8)
         ax.set_ylabel(r"$\Delta \phi$", fontsize=8)
         ax.set_zlabel(r"$p_T$ frac", fontsize=8)
         ax.set_title(channel_names[ch], fontsize=10)
@@ -141,7 +141,7 @@ def plot_combined_towers(fig, img_3ch, R=0.4):
                      shade=True, color=channel_colors[ch], alpha=0.6,
                      label=channel_labels[ch])
 
-    ax.set_xlabel(r"$\Delta y$", fontsize=9)
+    ax.set_xlabel(r"$\Delta \eta$", fontsize=9)
     ax.set_ylabel(r"$\Delta \phi$", fontsize=9)
     ax.set_zlabel(r"$p_T$ fraction", fontsize=9)
     ax.set_title("All channels combined", fontsize=10)

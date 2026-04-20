@@ -40,7 +40,7 @@ def plot_jet_image_towers(img, R=0.4, zlabel=r'$\sum p_T$'):
 
     ax.bar3d(x0, y0, z0, dx, dy, dz, shade=True)
 
-    ax.set_xlabel(r'$\Delta y$',fontsize=10)
+    ax.set_xlabel(r'$\Delta \eta$',fontsize=10)
     ax.set_ylabel(r'$\Delta \phi$',fontsize=10)
     ax.set_zlabel(zlabel)
     ax.set_title("Jet image as 3D towers")
