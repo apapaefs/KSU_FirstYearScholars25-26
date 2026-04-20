@@ -62,7 +62,7 @@ def plot_jet_image(img, label, title, outpath, R=0.4):
                             cmap=cmap_obj, interpolation="nearest",
                             vmin=0)
         axes[i].set_title(ch_label)
-        axes[i].set_xlabel(r"$\Delta y$")
+        axes[i].set_xlabel(r"$\Delta \eta$")
         if i == 0:
             axes[i].set_ylabel(r"$\Delta \phi$")
         fig.colorbar(im, ax=axes[i], fraction=0.046, pad=0.04)
